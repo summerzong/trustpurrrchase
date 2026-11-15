@@ -1,0 +1,10 @@
+.git
+.env
+**/.env
+data/
+demo/.cache/
+demo/out/
+**/__pycache__/
+*.pdf
+.DS_Store
+deploy/

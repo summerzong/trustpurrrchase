@@ -1,0 +1,66 @@
+{
+  "_doc": "The buyer's order guide: the SKU the kitchen usually buys for an ingredient (B2B wholesalers keep one per customer). A recipe line uses it as the first choice, so a line turns red exactly when the usual product cannot be ordered, and the alternatives are compared with it (same pack size and unit price = Best). Ingredients not listed here get the agent's best-ranked orderable match. Keys and aliases are plain English ingredient names (lower case); the longest alias that matches the ingredient name wins. Synthetic demo buyer, set on 2026-11-14.",
+  "items": {
+    "carrot": {
+      "aliases": [
+        "carrots",
+        "fresh carrot",
+        "fresh carrots"
+      ],
+      "product_id": "460721",
+      "note": "washed carrots, 1 kg bag"
+    },
+    "salmon fillet": {
+      "aliases": [
+        "salmon",
+        "fresh salmon",
+        "salmon fillets",
+        "salmon fillet, skinless"
+      ],
+      "product_id": "462150",
+      "note": "salmon fillet, C-cut"
+    },
+    "cooking cream": {
+      "aliases": [
+        "cream",
+        "double cream",
+        "heavy cream",
+        "whipping cream",
+        "single cream",
+        "cream (cooking)"
+      ],
+      "product_id": "464249",
+      "note": "Valio cooking cream 15 % 1 l, lactose-free"
+    },
+    "onion": {
+      "aliases": [
+        "onions",
+        "yellow onion",
+        "yellow onions"
+      ],
+      "product_id": "460195",
+      "note": "onions, 10 kg sack"
+    },
+    "leek": {
+      "aliases": [
+        "leeks"
+      ],
+      "product_id": "460354",
+      "note": "leek, class 1"
+    },
+    "dill": {
+      "aliases": [
+        "fresh dill"
+      ],
+      "product_id": "460437",
+      "note": "dill, 100 g bunch"
+    },
+    "butter": {
+      "aliases": [
+        "unsalted butter"
+      ],
+      "product_id": "464411",
+      "note": "Valio butter 500 g unsalted"
+    }
+  }
+}

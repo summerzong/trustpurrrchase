@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/trusted-trade-agent/basket.schema.json",
+  "title": "Multi-line order (basket) returned to a buyer's agent",
+  "description": "Response of POST /api/request for a named dish (intent 'source'), and of /api/basket/preference and /api/basket/confirm. Prices, stock, allergen verdicts, tiers and gates are deterministic rules on catalogue and live data; Claude only writes the recipe, judges product identity and suggests substitutes. Additional properties are allowed (the response also carries the full interpretation trace).",
+  "type": "object",
+  "required": ["order_id", "kind", "status", "request", "groups", "lines", "totals", "quote", "preference", "api_evidence"],
+  "properties": {
+    "order_id": {"type": "string", "pattern": "^BSK-"},
+    "kind": {"const": "basket"},
+    "status": {"enum": ["AWAITING_CONFIRMATION", "CONFIRMED_BY_HUMAN", "STALE_QUOTE", "CANCELLED_BY_HUMAN"]},
+    "request": {"type": "string"},
+    "dishes": {"type": "array", "items": {"type": "string"}},
+    "portions": {"type": ["number", "null"]},
+    "deliver_by": {"type": "string", "format": "date"},
+    "groups": {
+      "description": "The regular group first, then each diet sub-group ('6 of them are allergic to milk protein and gluten').",
+      "type": "array",
+      "items": {"type": "object", "required": ["key", "name", "portions", "diet", "allergy"],
+                "properties": {"key": {"type": "string"}, "name": {"type": "string"}, "portions": {"type": ["number", "null"]},
+                               "diet": {"type": "array", "items": {"type": "string", "description": "diet code from rules/diet_*.json, e.g. DAIRY_FREE"}},
+                               "allergy": {"type": "boolean"}, "quote": {"type": "string"}, "read_by": {"type": "string"}}}
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "ingredient", "group", "need", "light", "tiers", "excluded"],
+        "properties": {
+          "key": {"type": "string", "description": "ingredient key : group key, e.g. 'i0:g1'"},
+          "ingredient": {"type": "string"},
+          "group": {"type": "string"},
+          "need": {"type": "object", "properties": {"qty": {"type": ["number", "null"]}, "unit": {"enum": ["KG", "L", "PCS", null]}, "basis": {"type": "string"}}},
+          "light": {"enum": ["green", "red"], "description": "green: the buyer's usual product (rules/order_guide.json) or the best match can be ordered in time"},
+          "first_choice": {"type": ["object", "null"]},
+          "why": {"type": "string"},
+          "chosen": {"anyOf": [{"$ref": "#/$defs/option"}, {"type": "null"}]},
+          "default_option": {"type": ["string", "null"], "description": "option id the agent recommends: the top of best, else better, else good; never later or warn"},
+          "tiers": {"type": "object", "properties": {
+            "best": {"type": "array", "items": {"$ref": "#/$defs/option"}},
+            "better": {"type": "array", "items": {"$ref": "#/$defs/option"}},
+            "good": {"type": "array", "items": {"$ref": "#/$defs/option"}},
+            "later": {"type": "array", "items": {"$ref": "#/$defs/option"}},
+            "warn": {"type": "array", "items": {"$ref": "#/$defs/option"}}}},
+          "excluded": {"type": "array", "description": "known violations, never offered", "items": {"type": "object", "properties": {"productId": {"type": "string"}, "name": {"type": "string"}, "reason": {"type": "string"}, "allergen_reasons": {"$ref": "#/$defs/allergen_reasons"}}}},
+          "decision": {"type": "object", "description": "after confirmation: tier, gate, acknowledgement, learnable, learning, quantity_change {proposed, chosen, need, unit} when a person changed the quantity"}
+        }
+      }
+    },
+    "preference": {"type": "object", "properties": {"question": {"type": "string"}, "options": {"type": "array", "items": {"enum": ["price", "delivery", "stock", "fit"]}}, "answer": {"enum": ["price", "delivery", "stock", "fit", null]}}},
+    "totals": {"type": "object", "properties": {"eur": {"type": "number"}, "eur_incl_vat": {"type": "number"}, "green": {"type": "integer"}, "red": {"type": "integer"}, "unresolved": {"type": "array", "items": {"type": "string"}}}},
+    "quote": {"type": "object", "properties": {"captured_at": {"type": "string"}, "valid_until": {"type": ["string", "null"], "description": "earliest order cut-off of the selected lines"}, "note": {"type": "string"}}},
+    "tasks": {"type": "array", "description": "arrival label checks for lines accepted with incomplete allergen evidence", "items": {"type": "object"}},
+    "simulation": {"type": ["object", "null"], "description": "set only when a labelled fault-injection fixture (scenarios/) changed availability dates"},
+    "revalidation": {"type": "object", "description": "the live re-check at confirmation: ok, changes, lines, api_evidence"},
+    "api_evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+    "cancel_until": {"type": ["string", "null"]},
+    "audit_file": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "option": {
+      "type": "object",
+      "required": ["id", "tier", "productId", "name", "quantity", "salesUnit", "unitPrice", "lineTotal", "availableDate", "relaxed", "allergen_verdict"],
+      "properties": {
+        "id": {"type": "string", "description": "tier:productId, used in /api/basket/confirm choices"},
+        "tier": {"enum": ["as_requested", "best", "better", "good", "later", "warn"]},
+        "kind": {"enum": ["same", "variant", "substitute"]},
+        "productId": {"type": "string"}, "name": {"type": "string"},
+        "quantity": {"type": "number", "description": "sales units, rounded up to the lot size; every option, a substitute too, is bought and paid for"},
+        "salesUnit": {"type": "string"}, "amount": {"type": "number"}, "measure": {"enum": ["KG", "L", "PCS"]},
+        "unitPrice": {"type": "number"}, "lineTotal": {"type": "number"}, "eur_per_unit": {"type": "number"},
+        "availableDate": {"type": ["string", "null"], "description": "the delivery date the line is ordered for: the earliest date the API offers"},
+        "daysEarly": {"type": "integer", "minimum": 0, "description": "days between availableDate and the deadline (0 = arrives on the deadline)"},
+        "anomalies": {"type": "array", "items": {"type": "string"}, "description": "API contract anomaly codes (aimo_contract.ANOMALY_CODES); any one needs a person"},
+        "orderCutOff": {"type": ["string", "null"]}, "stock": {"type": "string"},
+        "relaxed": {"type": "array", "items": {"type": "string"}, "description": "what this option relaxes; empty = nothing"},
+        "allergen_verdict": {"enum": ["pass", "warn", "reject"]},
+        "allergen_reasons": {"$ref": "#/$defs/allergen_reasons"},
+        "substitute": {"type": ["object", "null"]},
+        "score": {"type": "number"}, "u": {"type": "object"}
+      }
+    },
+    "allergen_reasons": {"type": "array", "items": {"type": "object", "properties": {
+      "code": {"type": "string"}, "label": {"type": "string"},
+      "verdict": {"enum": ["pass", "warn", "reject"]}, "evidence": {"type": "string"},
+      "smt": {"type": "object", "description": "Z3 satisfiability of a violation and, when a violation is possible, of compliance under the demo policy and catalog evidence", "required": ["violation"], "properties": {
+        "violation": {"enum": ["sat", "unsat", "unknown"]}, "compliance": {"enum": ["sat", "unsat", "unknown"]}
+      }}
+    }}},
+    "evidence": {"type": "object", "properties": {"endpoint": {"type": "string"}, "at": {"type": "string"}, "requestedDate": {"type": "string"}, "products": {"type": "integer"}, "response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+  }
+}

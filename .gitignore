@@ -1,0 +1,21 @@
+# --- Secrets: each person keeps their own copy (see README "Setup") ---
+.env
+.env.*
+!.env.example
+
+# --- Challenge material: the PDF contains the API key and portal password ---
+*.pdf
+
+# --- Downloaded data: product file is ~87 MB; re-create with demo/fetch_data.py ---
+data/
+
+# --- Generated at runtime ---
+.cache/
+out/
+*.part
+__pycache__/
+*.pyc
+.DS_Store
+
+demo/rules/review
+src/

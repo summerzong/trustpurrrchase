@@ -1,0 +1,15 @@
+{
+  "buyer": "Demo hotel chain (synthetic)",
+  "customer_id": "HOTEL-DEMO-001",
+  "policy_version": "2026-11-14.4",
+  "require_human_confirmation": true,
+  "auto_approve_max_total_eur": 1500,
+  "max_price_per_unit_eur": {"milk": 2.5},
+  "allow_split_orders": false,
+  "require_structured_diet_evidence": true,
+  "allow_unconfirmed_supplier_stock": false,
+  "min_delivery_reliability": 0.95,
+  "check_duplicate_orders": false,
+  "idempotency_window_minutes": 10,
+  "duplicate_order_window_hours": 24
+}

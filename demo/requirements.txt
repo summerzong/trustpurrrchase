@@ -1,0 +1,4 @@
+# Claude-based parsing and recipe suggestions.
+anthropic>=0.125.0
+# Formal allergen check for the hospital scenario.
+z3-solver>=4.13,<5

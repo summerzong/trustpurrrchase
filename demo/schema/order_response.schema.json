@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/trusted-trade-agent/order_response.schema.json",
+  "title": "Single-product order decision returned to a buyer's agent",
+  "description": "Response of POST /api/request for one product (intent 'order'), and of /api/decide, /api/relax, /api/cancel and /api/change. The decision is made by policy.json guardrails over live data; Claude has no vote. Additional properties are allowed.",
+  "type": "object",
+  "required": ["order_id", "status", "request", "query", "options", "guardrail_checks", "explanation", "rejected", "api_evidence", "next_steps"],
+  "properties": {
+    "order_id": {"type": "string", "pattern": "^ORD-"},
+    "status": {"enum": ["PLACED_AUTONOMOUSLY", "PENDING_APPROVAL", "ESCALATED_NO_OPTION", "APPROVED_BY_HUMAN", "REJECTED_BY_HUMAN", "STALE_QUOTE", "CANCELLED_BY_HUMAN"]},
+    "request": {"type": "string"},
+    "query": {"type": "object", "description": "structured need: product_type, product, quantity, unit (L|KG|PCS), deliver_by, diet[], avoid_brands[], must_have[], preferences, optimize_for[]"},
+    "recommended_option": {"type": ["integer", "null"]},
+    "options": {"type": "array", "items": {"type": "object", "required": ["option", "total_eur", "measure", "eur_per_unit", "lines"],
+      "properties": {"option": {"type": "integer"}, "kind": {"enum": ["single", "split", "partial"]}, "total_eur": {"type": "number"}, "total_eur_incl_vat": {"type": "number"},
+                     "measure": {"enum": ["L", "KG", "PCS"]}, "eur_per_unit": {"type": "number"}, "tags": {"type": "array", "items": {"type": "string"}}, "pareto_optimal": {"type": "boolean"},
+                     "lines": {"type": "array", "items": {"type": "object", "properties": {"productId": {"type": "string"}, "name": {"type": "string"}, "quantity": {"type": "number"}, "salesUnit": {"type": "string"}, "unitPrice": {"type": "number"}, "lineTotal": {"type": "number"}, "availableDate": {"type": ["string", "null"], "description": "the delivery date the line is ordered for: the earliest date the API offers"}, "daysEarly": {"type": "integer", "minimum": 0, "description": "days between availableDate and the requested deadline (0 = arrives on the deadline)"}, "orderCutOff": {"type": ["string", "null"]}, "dietEvidence": {"type": "string"}, "flags": {"type": "array", "items": {"type": "string"}}, "anomalies": {"type": "array", "items": {"type": "string"}, "description": "API contract anomaly codes (aimo_contract.ANOMALY_CODES); any one fails the guardrail 'live data consistent with the API contract'"}}}}}}},
+    "guardrail_checks": {"type": "array", "items": {"type": "object", "required": ["ok", "check"], "properties": {"ok": {"type": "boolean"}, "check": {"type": "string"}, "group": {"type": "string"}, "ref": {"type": "string"}}}},
+    "explanation": {"type": "array", "items": {"type": "string"}},
+    "rejected": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "string"}, "stage": {"enum": ["catalog", "live", "llm"]}, "code": {"type": "string"}, "reason": {"type": "string"}}}},
+    "relaxations": {"type": "array", "description": "changes only a person may accept (POST /api/relax); never diet or allergy"},
+    "constraints": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "strength": {"enum": ["hard", "negotiable", "preference"]}}}},
+    "api_evidence": {"type": "array", "items": {"type": "object", "properties": {"endpoint": {"type": "string"}, "at": {"type": "string"}, "response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}},
+    "requires_confirmation": {"type": "string", "description": "set when every rule passed but policy.json require_human_confirmation keeps the order PENDING_APPROVAL: the agent never orders on its own"},
+    "cancel_until": {"type": ["string", "null"], "description": "earliest order cut-off of the committed lines: cancel or change until then (POST /api/cancel, /api/change)"},
+    "cancellation": {"type": "object"},
+    "revalidation": {"type": "object"},
+    "next_steps": {"type": "array", "items": {"type": "string"}},
+    "audit_file": {"type": ["string", "null"]}
+  }
+}

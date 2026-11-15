@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trusted Trade Agent</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1c2230; --muted: #5d6877; --line: #e2e6eb;
+    --accent: #0b5cad; --accent-text: #ffffff; --chip: #edf1f6;
+    --ok: #17703c; --ok-bg: #e7f4ec; --warn: #8a5a00; --warn-bg: #fdf3df; --bad: #b42318; --bad-bg: #fcebe9;
+    --rules-bg: #dbe9fb; --claude-bg: #fbe5bd; --both-bg: #cdeed8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101317; --card: #181d24; --text: #e6eaef; --muted: #9aa5b1; --line: #2a313b;
+      --accent: #5aa2ff; --accent-text: #0b1220; --chip: #222a34;
+      --ok: #5fd08f; --ok-bg: #14271c; --warn: #f0b54a; --warn-bg: #2b2311; --bad: #ff7b72; --bad-bg: #321918;
+      --rules-bg: #1c3555; --claude-bg: #443211; --both-bg: #173d24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 2px 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+  textarea { width: 100%; min-height: 72px; font: inherit; padding: 10px 12px; border: 1px solid var(--line);
+             border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 9px 18px; cursor: pointer;
+           background: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button.ghost { background: var(--chip); color: var(--text); font-weight: 500; }
+  button.small { padding: 5px 10px; font-size: 13px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .examples .label { color: var(--muted); font-size: 13px; min-width: 82px; }
+  label.toggle { color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; margin-left: auto; }
+  .muted { color: var(--muted); }
+  .small-text { font-size: 13px; }
+
+  .banner { border-width: 1px 1px 1px 6px; }
+  .banner.ok { border-left-color: var(--ok); }
+  .banner.warn { border-left-color: var(--warn); }
+  .banner.bad { border-left-color: var(--bad); }
+  .banner.info { border-left-color: var(--accent); }
+  .info .pill, .pill.info { background: var(--chip); color: var(--accent); }
+  .reasons.info { background: var(--chip); }
+  .recipe-meta { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 8px; }
+  .recipe-why { font-size: 13px; color: var(--muted); margin: 6px 0 10px; }
+  .status { font-size: 20px; font-weight: 700; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .ok .pill, .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .warn .pill, .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .bad .pill, .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 18px; margin-top: 14px; }
+  .facts div span { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .facts div b { font-size: 16px; }
+  .reasons { margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--warn-bg); color: var(--text); }
+  .reasons.bad { background: var(--bad-bg); }
+  .reasons ul { margin: 4px 0 0; padding-left: 18px; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: var(--chip); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .note { font-size: 13px; color: var(--warn); margin-top: 8px; }
+  ul.why { margin: 0; padding-left: 18px; }
+  ul.why li { margin: 3px 0; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .grid2 .card { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase;
+       letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.best td { background: var(--ok-bg); }
+  .tablewrap { overflow-x: auto; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--chip); margin: 1px 2px 1px 0; }
+  .tag.star { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+
+  ul.checks { list-style: none; margin: 0; padding: 0; }
+  ul.checks li { padding: 4px 0; display: flex; gap: 8px; }
+  ul.checks .y { color: var(--ok); font-weight: 700; }
+  ul.checks .n { color: var(--bad); font-weight: 700; }
+  ul.checks li.fail { font-weight: 600; }
+
+  .funnel { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .funnel div { background: var(--chip); border-radius: 8px; padding: 6px 10px; text-align: center; min-width: 92px; }
+  .funnel b { display: block; font-size: 17px; }
+  .funnel small { color: var(--muted); font-size: 12px; }
+  .funnel i { color: var(--muted); font-style: normal; }
+  details { border-top: 1px solid var(--line); padding: 7px 0; }
+  details summary { cursor: pointer; }
+  details ul { margin: 6px 0 4px; padding-left: 18px; font-size: 13px; color: var(--muted); }
+  .count { display: inline-block; min-width: 30px; font-weight: 700; }
+  code { font-size: 12px; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+  .error { border-left: 6px solid var(--bad); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* "How the agent decided" */
+  mark { color: inherit; border-radius: 3px; padding: 1px 2px; }
+  mark.rules { background: var(--rules-bg); }
+  mark.claude { background: var(--claude-bg); }
+  mark.both { background: var(--both-bg); }
+  .request { font-size: 16px; line-height: 1.9; padding: 10px 12px; background: var(--bg); border-radius: 8px; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0; }
+  details.step { padding: 11px 0; }
+  details.step > summary { list-style: none; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+                           position: relative; padding-right: 44px; }
+  details.step > summary::-webkit-details-marker { display: none; }
+  details.step > summary::after { content: "show"; position: absolute; right: 0; top: 3px; font-size: 12px; color: var(--accent); }
+  details.step[open] > summary::after { content: "hide"; }
+  .step-no { width: 24px; height: 24px; border-radius: 50%; background: var(--chip); display: inline-flex;
+             align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex: none; }
+  .step-sum { font-size: 13px; color: var(--muted); flex-basis: 100%; padding-left: 32px; }
+  .step-body { margin: 10px 0 0 32px; font-size: 14px; }
+  .actor { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .actor.rules { background: var(--rules-bg); }
+  .actor.claude { background: var(--claude-bg); }
+  .actor.live { background: var(--ok-bg); color: var(--ok); }
+  .actor.policy { background: var(--chip); }
+  .callbox { background: var(--bg); border-radius: 8px; padding: 9px 12px; margin: 10px 0; font-size: 13px; }
+  .callbox div { margin: 2px 0; }
+  .flow { margin: 4px 0; }
+  .flow-row { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .flow-row > b { text-align: right; font-variant-numeric: tabular-nums; }
+  .flow-row details { border: 0; padding: 2px 0 0; }
+  .gr { margin-bottom: 8px; }
+  ul.relax { list-style: none; padding: 0; margin: 6px 0 0; }
+  ul.relax li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 6px 0;
+                border-top: 1px solid var(--line); }
+  ul.relax li button { grid-row: 1 / span 2; grid-column: 2; }
+  .gr h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 8px 0 2px; }
+  /* multi-line orders (basket) */
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 4px 0 2px; }
+  .dot.green { background: var(--ok); } .dot.red { background: var(--bad); }
+  .tier { margin-top: 12px; } .tier h3 { font-size: 13px; margin: 6px 0 4px; font-weight: 600; }
+  label.opt { display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 8px 10px; border: 1px solid var(--line);
+              border-radius: 8px; margin: 4px 0; cursor: pointer; }
+  label.opt.on { border-color: var(--accent); background: var(--chip); }
+  .reasons.warnbox { background: var(--warn-bg); border-left: 4px solid var(--warn); }
+  label.ack { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-weight: 600; cursor: pointer; }
+  .card.sim { background: var(--warn-bg); border-color: var(--warn); }
+  .sha { font-size: 12px; color: var(--ok); margin-top: 10px; }
+  .bad-text { color: var(--bad); }
+  .clock { font-size: 12px; color: var(--warn); margin-top: 6px; }
+  .card.decide { border-left: 6px solid var(--bad); }
+  .lead { margin: 2px 0 10px; }
+  .optline { display: grid; grid-template-columns: 74px 1fr auto; gap: 10px; align-items: baseline; }
+  .optline .pill { text-align: center; }
+  @media (max-width: 600px) { .optline { grid-template-columns: 1fr; gap: 2px; } }
+  .ruled { background: var(--bad-bg); border-radius: 8px; padding: 8px 12px; margin: 0 0 10px; font-size: 14px; }
+  .ruled ul { margin: 4px 0 0; padding-left: 18px; }
+  .ruled details ul { color: var(--muted); }
+  .rank { margin-top: 8px; }
+  button.link { background: none; color: var(--accent); padding: 0 2px; font-weight: 500; font-size: 13px; }
+  button.link.on { text-decoration: underline; font-weight: 700; }
+  .confirmbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Trusted Trade Agent</h1>
+  <p class="sub">Type what your kitchen needs. The agent searches the Valio Aimo catalogue, checks live price &amp; availability, and orders within its authority or asks you to approve.</p>
+
+  <div class="card">
+    <textarea id="text">I need 1,000 litres of lactose-free milk by Monday. Find an option that meets our requirements based on price and availability.</textarea>
+    <div id="examples"></div>
+    <div id="hint" class="muted small-text" style="margin-top:6px">Pick an example; ✦ needs Claude.</div>
+    <div class="row">
+      <button id="go">Find &amp; order</button>
+      <span id="busy" class="muted small-text"></span>
+      <label class="toggle"><input type="checkbox" id="llm" checked> Use Claude to understand the request</label>
+    </div>
+    <div class="row" style="margin-top:4px"><label class="toggle" style="margin-left:0"><input type="checkbox" id="sim">
+      Simulate a supplier delay for plant-based bases with full allergen data (fault injection, labelled in the result)</label></div>
+  </div>
+
+  <div id="out"></div>
+</main>
+
+<script>
+const EXACT = "I need 1,000 litres of lactose-free milk by Monday. Find an option that meets our requirements based on price and availability.";
+const RHUBARB = "We've already planned to make rhubarb pudding, rhubarb bread, and rhubarb pancakes, but we'd like to make some hot rhubarb-themed main courses. Could you recommend some recipes? Our restaurant specializes in Scandinavian cuisine, so we need something in that style.";
+const WEDDING = "We're catering a wedding for 100 guests on Saturday and want to serve salmon and carrot soup. Can you source the ingredients?";
+const HOSPITAL = "Hospital kitchen: we need 4 litres of cooking cream for tomorrow's lunch soup for 40 patients. 6 of them are allergic to milk protein and gluten.";
+const EXAMPLES = [  // [group, [[label, request, what it shows]]]; ✦ = needs Claude
+  ["Demo", [
+    ["① Milk, autonomous", EXACT, "Every purchasing rule passes, so the agent orders on its own; you can still cancel or change it until the cut-off"],
+    ["② Wedding soup ✦", WEDDING, "Everything is ready except one line: your usual carrot can't be delivered. Pick Best, Better or Good, confirm once"],
+    ["③ Hospital allergy ✦", HOSPITAL, "34 regular portions ready; for the 6 allergy portions: what is ruled out, and three choices you decide on (tick 'Simulate' for the delay)"],
+  ]],
+  ["Basics", [
+    ["Autonomous order", EXACT, "Every purchasing rule passes, so the agent orders on its own"],
+    ["Over budget", "I need 3000 l lactose-free milk by Monday", "policy.json: above the €1,500 autonomous spending limit"],
+    ["Brand vs price", "We need 1,000 litres of lactose-free Arla milk by Monday, cheapest available.", "Your brand preference against the cheapest option: a trade-off for you"],
+    ["Two products", "1000 l lactose-free milk and 50 kg butter by Monday", "The agent asks for one product per request instead of dropping the butter"],
+    ["Vague date", "500 l lactose-free milk next week", "'next week' is not a date: the agent asks instead of guessing"],
+  ]],
+  ["Hard rules", [
+    ["Vegan milk", "1000 l vegan milk by Monday", "Hard: no milk is vegan. The agent explains why and never relaxes it; with Claude it offers another product for your OK"],
+    ["Fish allergy", "1000 l lactose-free milk for a guest with a fish allergy, by Monday", "Allergy rule from the GS1 allergen data: only products declared fish-free; the rule is not reviewed yet"],
+    ["Unreviewed diet rule", "1000 l lactose-free milk with no added sugar by Monday", "The no-added-sugar rule is generated from the data but no person has reviewed it yet"],
+    ["Can't verify", "1000 l kosher lactose-free milk by Monday", "The data cannot verify 'kosher', so it is reported instead of dropped"],
+  ]],
+  ["Soft & relax", [
+    ["Too soon → later date", "I need 1,000 litres of lactose-free milk by tomorrow", "Nothing arrives in time: accept the earliest date with one click, and the agent re-runs"],
+    ["Only Arla", "1000 l lactose-free milk, only Arla, by Monday", "'only' turns the brand into a requirement that can be relaxed only with your OK"],
+    ["Excluded brand", "1000 l lactose-free milk by Monday, no Valio", "'no Valio' is a filter; allowing Valio again needs your OK"],
+    ["Durian pancakes ✦", "We'd like to serve durian pancakes as a dessert special on Friday. What should we order?", "No durian in the catalogue: Claude suggests a substitute, picked from real products, for your OK"],
+    ["Any product ✦", "We need 50 kg of butter by Monday", "Catalogue search, then Claude judges every result; an unreviewed product type needs approval"],
+    ["Menu idea ✦", RHUBARB, "Claude suggests dishes, picks products only from real catalogue IDs, and never orders"],
+  ]],
+];
+const STATUS = {
+  PLACED_AUTONOMOUSLY: ["ok", "✓ Order placed automatically", "All guardrails passed, so the agent acted within its authority."],
+  PENDING_APPROVAL:    ["warn", "⏸ Needs your approval", "The agent found options, but your purchasing rules require a human decision."],
+  ESCALATED_NO_OPTION: ["bad", "✕ Nothing could be ordered", "No option meets the hard requirements. See what was ruled out and the suggested next step."],
+  APPROVED_BY_HUMAN:   ["ok", "✓ Approved by you", "The order was confirmed by a person."],
+  REJECTED_BY_HUMAN:   ["bad", "✕ Rejected by you", "No order will be placed."],
+  STALE_QUOTE:         ["bad", "✕ Quote changed: approval not placed", "Price or availability changed after the quote, so nothing was ordered."],
+  AWAITING_CONFIRMATION: ["warn", "🧾 Quote ready: confirm the whole order once", "Every line is priced live. Green lines are your usual products; red lines need a choice."],
+  CONFIRMED_BY_HUMAN:  ["ok", "✓ Order confirmed by you", "One confirmation for every line, re-checked live first."],
+  CANCELLED_BY_HUMAN:  ["bad", "✕ Order cancelled", "Cancelled before the order cut-off. Nothing will be delivered."],
+  PROPOSAL_FOR_REVIEW: ["info", "💡 Menu proposal (nothing ordered)", "Dish ideas with real catalogue products and live price & availability. Tell me portions, date and dishes to turn lines into orders."],
+};
+const LINE_STATUS = {
+  OK: ["ok", "available"], SUBSTITUTE: ["warn", "substitute"], UNAVAILABLE: ["bad", "not orderable"],
+  NO_MATCH: ["bad", "no match"], PANTRY: ["info", "pantry"], SUBSTITUTE_SUGGESTED: ["warn", "substitute: needs your OK"],
+  DIET_UNVERIFIED: ["warn", "diet not verified: needs your OK"], NOT_PICKED: ["warn", "not picked: you choose"],
+};
+const STRENGTH = { hard: ["bad", "hard"], negotiable: ["warn", "negotiable"], preference: ["info", "preference"] };
+const CODE_LABEL = {
+  DIET_FAIL: "Doesn't meet the dietary requirement", DIET_NEAR_MISS: "Look-alike: low-lactose is not lactose-free",
+  WRONG_SUBTYPE: "Wrong kind of product", CUTOFF_PASSED: "Order cut-off already passed",
+  TOO_LATE: "Can't arrive in time", NOT_DELIVERABLE: "Not deliverable at the moment", SALES_BLOCK: "Sales blocked",
+  OUT_OF_STOCK: "Out of stock", NO_PRICE: "No price available", NO_AVAILABILITY: "No availability data",
+  NO_UNIT_CONVERSION: "Pack size unknown", NOT_PRODUCT_TYPE: "Different product",
+  NOT_THE_PRODUCT: "Not the requested product (Claude's check)", AVOIDED_BRAND: "Brand you excluded",
+  MUST_HAVE: "Not what you required ('only …')",
+};
+const STAGE_LABEL = { live: "live check", llm: "Claude's check", catalog: "catalogue" };
+const ACTOR = { rules: ["rules", "⚙ rules"], claude: ["claude", "✦ Claude"], live: ["live", "◉ live data"], policy: ["policy", "⚖ policy"] };
+const FIELD = { product_type: "product", product: "product", quantity: "quantity", unit: "unit", deliver_by: "delivery date",
+  diet: "diet", avoid_brands: "excluded brand", brand: "preferred brand", fat_level: "fat level", organic: "organic",
+  optimize_for: "optimise for", unsupported: "cannot verify", portions: "portions" };
+const OUTCOME = {
+  agree: ["ok", "✓ both agree"], disagree: ["bad", "✕ disagree → a person decides"],
+  claude_quoted: ["warn", "Claude only, quoted → a person confirms"], claude_flagged: ["warn", "Claude only, no quote → kept, a person confirms"],
+  claude_ignored: ["info", "Claude only, no quote → ignored"], claude_product: ["warn", "outside the reviewed types → a person approves"],
+  rules_only: ["info", "rules only (Claude off)"], not_stated: ["", "– not stated"],
+};
+const GROUP_ORDER = ["Buyer policy", "Your request", "Your consent", "Understanding", "Data check", "Reviewed rules", "Claude's check", "Retrieval", "Other"];
+const OBJ = { cost: "price", availability: "availability", preference: "your preferences",
+              evidence: "evidence", handling: "handling", carbon: "carbon" };
+const UNIT = { ST: "pcs", KI: "cases", PAK: "packs", CS: "cases", PRK: "cartons", KG: "kg", BOT: "bottles",
+               BAG: "bags", RAS: "boxes", KRT: "cartons" };
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const eur = (n) => n == null ? "–" : "€" + Number(n).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (n) => Number(n).toLocaleString("en-GB", { maximumFractionDigits: 2 });
+const pct = (n) => n == null ? "unknown" : Math.round(n * 100) + "%";
+const day = (iso) => iso ? new Date(iso.length === 10 ? iso + "T12:00:00" : iso)
+  .toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "–";
+const dayTime = (iso) => iso ? new Date(iso).toLocaleString("en-GB",
+  { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "–";
+
+let current = null;
+
+for (const [group, items] of EXAMPLES) {
+  const row = document.createElement("div");
+  row.className = "examples";
+  row.innerHTML = `<span class="label">${esc(group)}</span>`;
+  for (const [label, text, shows] of items) {
+    const b = document.createElement("button");
+    b.className = "ghost small"; b.textContent = label; b.title = shows;
+    b.onclick = () => { $("#text").value = text; $("#text").focus(); $("#hint").textContent = shows; };
+    row.appendChild(b);
+  }
+  $("#examples").appendChild(row);
+}
+$("#go").onclick = submit;
+$("#text").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); });
+
+async function call(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({ error: "Server returned an unreadable response." }));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+let replacing = null;  // order id being changed (scenario 1: change before the cut-off)
+let bsel = {}, backs = new Set();  // basket: chosen option per red line, acknowledged warnings
+
+async function submit(_, again) {  // again: order the same goods again (skips the duplicate replay)
+  const text = $("#text").value.trim();
+  if (!text) return;
+  bsel = {}; backs = new Set();
+  $("#go").disabled = true;
+  $("#busy").innerHTML = '<span class="spinner"></span>Understanding the request, searching the catalogue, checking live price &amp; stock…';
+  const t0 = performance.now();
+  try {
+    if (replacing) {
+      current = await call("/api/change", { order_id: replacing, text, use_llm: $("#llm").checked });
+      replacing = null; $("#go").textContent = "Find & order";
+    } else {
+      current = await call("/api/request", { text, use_llm: $("#llm").checked, allow_duplicate: !!again,
+                                             simulate: $("#sim").checked ? "hospital_delay" : null });
+    }
+    render(current);
+    $("#busy").textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+  } catch (e) {
+    $("#out").innerHTML = `<div class="card error"><b>Something went wrong.</b><div class="muted">${esc(e.message)}</div></div>`;
+    $("#busy").textContent = "";
+  } finally {
+    $("#go").disabled = false;
+  }
+}
+
+async function decide(action, choose) {
+  document.querySelectorAll("#out button").forEach((b) => (b.disabled = true));
+  try {
+    const audit = current.audit_file;
+    current = await call("/api/decide", { order_id: current.order_id, action, choose });
+    current.audit_file = current.audit_file || audit;
+    render(current);
+    window.scrollTo({ top: $("#out").offsetTop - 10, behavior: "smooth" });
+  } catch (e) {
+    alert(e.message);
+    document.querySelectorAll("#out button").forEach((b) => (b.disabled = false));
+  }
+}
+
+
+// ---------- "How the agent decided": shared helpers ----------
+const fmt = (v) => v == null || (Array.isArray(v) && !v.length) ? "–" : Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v);
+const actors = (list) => list.filter(Boolean).map((a) => `<span class="actor ${ACTOR[a][0]}">${ACTOR[a][1]}</span>`).join("");
+
+function highlight(text, rs, cs) {
+  // Mark which words the rule parser read (rules), which Claude quoted (Claude), or both.
+  const n = text.length, R = Array.from({ length: n }, () => new Set()), C = Array.from({ length: n }, () => new Set());
+  for (const s of rs || []) for (let i = Math.max(0, s.start); i < Math.min(n, s.end); i++) R[i].add(FIELD[s.field] || s.field);
+  for (const s of cs || []) for (let i = Math.max(0, s.start); i < Math.min(n, s.end); i++) C[i].add(FIELD[s.field] || s.field);
+  const key = (i) => [...R[i]].sort().join(",") + "|" + [...C[i]].sort().join(",");
+  let out = "", i = 0;
+  while (i < n) {
+    let j = i + 1;
+    while (j < n && key(j) === key(i)) j++;
+    const seg = esc(text.slice(i, j)), r = R[i].size, c = C[i].size;
+    if ((!r && !c) || !text.slice(i, j).trim()) out += seg;  // leave plain gaps between marked words unmarked
+    else {
+      const tip = [r ? "rules: " + [...R[i]].join(", ") : "", c ? "Claude quoted for: " + [...C[i]].join(", ") : ""].filter(Boolean).join(" · ");
+      out += `<mark class="${r && c ? "both" : r ? "rules" : "claude"}" title="${esc(tip)}">${seg}</mark>`;
+    }
+    i = j;
+  }
+  return out;
+}
+
+function readings(text, spans, cls) {
+  const seen = new Set();
+  return spans.filter((s) => { const k = s.start + ":" + s.field; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.start - b.start)
+    .map((s) => `<span class="chip"><mark class="${cls}">${esc(text.slice(s.start, s.end))}</mark> → ${esc(FIELD[s.field] || s.field)}${s.value != null && s.value !== true ? ": " + esc(fmt(s.value)) : ""}</span>`).join("");
+}
+
+function callBox(c, note) {
+  if (!c) return "";
+  return `<div class="callbox">
+    <div><b>Claude call · ${esc(c.stage)}</b> <span class="muted">${esc(c.model)} · effort ${esc(c.effort)} · ${num(c.input_tokens || 0)} in / ${num(c.output_tokens || 0)} out tokens · ${c.seconds} s</span></div>
+    ${c.constraint ? `<div><b>Constrained decoding:</b> ${esc(c.constraint)}</div>` : ""}
+    <div><b>Reasoning summary:</b> ${c.reasoning_summary ? esc(c.reasoning_summary) : '<span class="muted">none returned for this step (it answered directly)</span>'}</div>
+    ${note ? `<div class="muted">${note}</div>` : ""}
+  </div>`;
+}
+
+function stepRead(r, interp) {
+  const it = r.interpretation || {}, sp = it.spans || {}, rs = sp.rules || [], cs = sp.claude || [];
+  return { title: "Read the request", actors: ["rules", interp && "claude"], open: true,
+    summary: `rule parser read ${rs.length} phrase${rs.length === 1 ? "" : "s"}` + (interp ? ` · Claude quoted ${cs.length}` : " · Claude off"),
+    body: `<div class="request">${highlight(r.request, rs, cs)}</div>
+      <div class="legend"><span><mark class="rules">read by rules</mark></span><span><mark class="claude">quoted by Claude</mark></span><span><mark class="both">both</mark></span><span>hover a word for the field</span></div>
+      <div class="chips">${readings(r.request, rs, "rules")}</div>
+      ${interp ? `<div class="muted small-text" style="margin-top:8px">Claude read ${num(interp.input_tokens || 0)} input tokens: the system prompt, an output schema built from the rule files, and your message. Its tokenizer and its raw chain of thought are internal to the model; what it must quote, and what it may output, are shown in step 2.</div>` : ""}` };
+}
+
+function stepUnderstand(r, interp) {
+  const it = r.interpretation || {}, fc = it.field_checks || [];
+  const counts = {};
+  fc.forEach((c) => (counts[c.outcome] = (counts[c.outcome] || 0) + 1));
+  const summary = interp ? Object.entries(counts).filter(([k]) => k !== "not_stated").map(([k, n]) => `${n} ${(OUTCOME[k] || ["", k])[1].replace(/^[✓✕–] /, "")}`).join(" · ") || "no order fields"
+                         : "rule parser only (Claude off or unavailable)";
+  const rows = fc.map((c) => { const [cls, label] = OUTCOME[c.outcome] || ["", c.outcome];
+    return `<tr><td>${esc(FIELD[c.field] || c.field)}</td><td>${esc(fmt(c.rules))}</td><td>${interp ? esc(fmt(c.claude)) : "–"}</td>
+      <td class="small-text">${c.quote ? "“" + esc(c.quote) + "”" : "–"}</td><td>${cls ? `<span class="pill ${cls}">${esc(label)}</span>` : `<span class="muted">${esc(label)}</span>`}</td></tr>`; }).join("");
+  const intent = it.llm_intent && it.llm_intent !== "order" ? `<div class="note">Claude read the intent as '${esc(it.llm_intent)}'.</div>` : "";
+  const msgs = [...(it.issues || []).map((x) => `⚠ ${esc(x)}`), ...(it.notes || []).map((x) => esc(x))];
+  const cons = r.constraints || [];
+  const consHtml = cons.length ? `<div style="margin-top:10px"><b>Your requirements, and how strict they are</b>
+      <div class="chips" style="margin-top:6px">${cons.map((c) => { const [cls, lab] = STRENGTH[c.strength] || ["", c.strength];
+        return `<span class="chip" title="${esc(c.why)}">${esc(c.name)} <span class="pill ${cls}">${esc(lab)}</span></span>`; }).join("")}</div>
+      <div class="muted small-text" style="margin-top:4px">hard: never relaxed · negotiable: applied, and relaxed only with your OK · preference: ranks the options</div></div>` : "";
+  return { title: "Understand: two readers, cross-checked", actors: ["rules", interp && "claude"], summary: esc(summary),
+    body: `${callBox(interp, "Claude may only output values the schema allows, and must quote your words for every critical field; the rule parser's reading is compared field by field.")}
+      ${consHtml}
+      ${intent}
+      ${fc.length ? `<div class="tablewrap"><table><tr><th>Field</th><th>Rule parser</th><th>Claude</th><th>Claude's quote</th><th>Result</th></tr>${rows}</table></div>` : ""}
+      ${msgs.length ? `<ul class="why" style="margin-top:8px">${msgs.map((m) => `<li>${m}</li>`).join("")}</ul>` : '<div class="muted small-text" style="margin-top:8px">No issues: the reading is unambiguous.</div>'}` };
+}
+
+function removedList(items) {
+  if (!items.length) return "";
+  return `<details><summary class="small-text">${items.length} ruled out</summary><ul>${items.slice(0, 60).map((x) =>
+    `<li>#${esc(x.id)} ${esc(x.name)} <span>— ${esc(x.reason)}</span></li>`).join("")}${items.length > 60 ? `<li>… ${items.length - 60} more</li>` : ""}</ul></details>`;
+}
+
+function groupList(label, items) {
+  return `<details><summary><span class="count">${items.length}</span>${esc(label)}</summary><ul>${items.slice(0, 60).map((x) =>
+    `<li>#${esc(x.id)} ${esc(x.name)} <span>— ${esc(x.reason)}</span></li>`).join("")}${items.length > 60 ? `<li>… ${items.length - 60} more</li>` : ""}</ul></details>`;
+}
+
+function stepFind(r) {
+  const s = r.retrieval_stats || {}, rej = r.rejected || [], calls = (r.interpretation || {}).llm_calls || [];
+  const generic = (s.mode || "").startsWith("generic"), classify = calls.find((c) => c.stage === "classify");
+  if (s.error) return { title: "Find products", actors: ["rules"], summary: esc("skipped: " + s.error),
+    body: `<div class="note">Search skipped: ${esc(s.error)}. The agent asks you instead of guessing.</div>` };
+  const rows = [{ n: s.catalog_size, label: "products in the Valio Aimo catalogue", src: "product data file (17,546 active products)" }];
+  let n;
+  const take = (codes, label, src, actor, stage = "catalog") => {
+    const rem = rej.filter((x) => codes.includes(x.code) && x.stage === stage);
+    if (!rem.length) return;
+    n -= rem.length;
+    rows.push({ n, label, src, rem, actor });
+  };
+  if (generic) {
+    n = s.in_category;
+    rows.push({ n, label: "found by word search in Finnish, English and Swedish names", src: "catalog.search_products · search terms from Claude (step 2) · English whole words only", actor: "rules" });
+    const rem = rej.filter((x) => x.code === "NOT_THE_PRODUCT"); n -= rem.length;
+    rows.push({ n, label: "judged by Claude to be the requested product (or a variant)", src: "Claude's verdicts, constrained as shown in the call above", rem, actor: "claude" });
+  } else {
+    n = s.in_category;
+    rows.push({ n, label: `in the category of the reviewed product type '${esc((r.product || {}).label || "")}'`, src: "rules/product_types.json · categories", actor: "rules" });
+    take(["NOT_PRODUCT_TYPE"], "name contains the product word", "rules/product_types.json · include", "rules");
+    take(["WRONG_SUBTYPE"], "not an excluded subtype (sour milk, coffee drinks, …)", "rules/product_types.json · exclude", "rules");
+  }
+  const dl = Object.values(r.diet_labels || {}).join(", ");
+  take(["AVOIDED_BRAND"], "not a brand you excluded", "your request · brand index generated from the data", "rules");
+  take(["MUST_HAVE"], "meets your 'only' requirement", "your request ('only Arla', 'only organic')", "rules");
+  take(["DIET_FAIL", "DIET_NEAR_MISS"], `diet evidence holds${dl ? " (" + esc(dl) + ")" : ""}: GS1 claims, allergen and nutrient data, look-alikes rejected`, "rules/diet_*.json", "rules");
+  take(["NO_UNIT_CONVERSION"], "convertible to the order's unit", "catalogue unit table or pack size in the name", "rules");
+  rows[rows.length - 1].final = true;
+  const body = `${generic ? callBox(classify, "Claude judges identity only (is this butter?); brand, price, diet and stock are checked by rules and live data.") : '<div class="muted small-text">Reviewed product type: retrieval is rule-only, Claude is not involved.</div>'}
+    <div class="flow">${rows.map((x) => `<div class="flow-row"><b>${num(x.n || 0)}</b><div>${x.label} ${x.actor ? actors([x.actor]) : ""}
+      ${x.src ? `<div class="muted small-text">${esc(x.src)}</div>` : ""}${removedList(x.rem || [])}</div></div>`).join("")}</div>`;
+  return { title: "Find products: catalogue + rules", actors: ["rules", generic && "claude"],
+    summary: rows.map((x) => num(x.n || 0)).join(" → ") + " candidates", body };
+}
+
+function stepLive(r) {
+  const s = r.retrieval_stats || {}, live = (r.rejected || []).filter((x) => x.stage === "live");
+  const groups = {};
+  live.forEach((x) => (groups[x.code] = groups[x.code] || []).push(x));
+  return { title: "Check live price & stock", actors: ["live", "rules"],
+    summary: `${num(s.live_checked || 0)} checked live → ${num(s.feasible_offers || 0)} orderable`,
+    body: `${Object.entries(groups).sort((a, b) => b[1].length - a[1].length).map(([code, items]) => groupList(CODE_LABEL[code] || code, items)).join("") || '<div class="muted small-text">Every candidate passed the live checks.</div>'}
+      <ul class="why" style="margin-top:8px">${(r.api_evidence || []).map((c) => `<li>${esc(c.endpoint)} for ${c.products} products at ${dayTime(c.at)}, response SHA-256 <code>${esc(c.response_sha256.slice(0, 16))}…</code></li>`).join("")}</ul>
+      <div class="muted small-text">Troubleshooting rules: cut-off already passed, too late, sales block, stock sentinels, unit cross-check against the comparison price.</div>` };
+}
+
+function stepCompare(r) {
+  const w = Object.entries(r.weights || {}).map(([k, v]) => `${OBJ[k] || k} ${Math.round(v * 100)}%`).join(" · ");
+  return { title: "Compare options", actors: ["rules"],
+    summary: r.options.length ? esc(`${r.options.length} options ranked · ` + (r.explanation[2] || r.explanation[0] || "")) : "no option to compare",
+    body: `<ul class="why">${r.explanation.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>
+      <div class="muted small-text" style="margin-top:6px">Deterministic multi-objective score (weights: ${esc(w)}) and Pareto front. Claude is not involved.</div>` };
+}
+
+function stepDecide(r) {
+  const checks = r.guardrail_checks || [], failed = checks.filter((c) => !c.ok);
+  const groups = {};
+  checks.forEach((c) => (groups[c.group || "Other"] = groups[c.group || "Other"] || []).push(c));
+  const [, title] = STATUS[r.status] || ["", r.status];
+  return { title: "Decide: purchasing rules", actors: ["policy", "rules"],
+    summary: esc(`${checks.length - failed.length}/${checks.length} passed → ${title.replace(/^\S+ /, "")}`),
+    body: GROUP_ORDER.filter((g) => groups[g]).map((g) => `<div class="gr"><h3>${esc(g)}</h3><ul class="checks">${groups[g].map((c) =>
+      `<li class="${c.ok ? "" : "fail"}"><span class="${c.ok ? "y" : "n"}">${c.ok ? "✓" : "✕"}</span><span>${esc(c.check)}${c.ref ? `<div class="muted small-text">${esc(c.ref)}</div>` : ""}</span></li>`).join("")}</ul></div>`).join("")
+      + `<div class="muted small-text">The agent orders on its own only if every check passes. Claude has no vote here: anything it was unsure about already became an issue above.</div>` };
+}
+
+function renderSteps(title, steps, footer) {
+  return `<div class="card"><h2>${title}</h2>${steps.map((st, i) => `<details class="step"${st.open ? " open" : ""}>
+    <summary><span class="step-no">${i + 1}</span><b>${esc(st.title)}</b>${actors(st.actors)}<span class="step-sum">${st.summary}</span></summary>
+    <div class="step-body">${st.body}</div></details>`).join("")}${footer || ""}</div>`;
+}
+
+async function relax(id) {
+  document.querySelectorAll("#out button").forEach((b) => (b.disabled = true));
+  $("#busy").innerHTML = '<span class="spinner"></span>Re-running the request with the change you accepted…';
+  try {
+    current = await call("/api/relax", { order_id: current.order_id, relaxation_id: id });
+    render(current);
+    $("#busy").textContent = "";
+    window.scrollTo({ top: $("#out").offsetTop - 10, behavior: "smooth" });
+  } catch (e) {
+    alert(e.message);
+    document.querySelectorAll("#out button").forEach((b) => (b.disabled = false));
+    $("#busy").textContent = "";
+  }
+}
+
+function renderProposal(r) {
+  const [cls, title, subtitle] = STATUS[r.status];
+  const it = r.interpretation || {};
+  const s = r.retrieval_stats || {};
+  const counts = r.line_status || {};
+  const unit = (u) => UNIT[u] || esc(u || "unit");
+  let html = `<div class="card banner ${cls}">
+    <div class="status">${title} <span class="pill">${esc(r.order_id)}</span></div>
+    <div class="muted">${subtitle}</div>
+    <div class="facts">
+      <div><span>Dishes</span><b>${r.recipes.length}</b></div>
+      <div><span>Ingredients searched</span><b>${num(s.ingredients_searched || 0)}</b><div class="muted small-text">${num(s.candidates || 0)} catalogue candidates</div></div>
+      <div><span>Available now</span><b>${num(counts.OK || 0)} / ${num(s.ingredients_searched || 0)}</b><div class="muted small-text">${num(counts.SUBSTITUTE || 0)} substitutes · ${num((counts.UNAVAILABLE || 0) + (counts.NO_MATCH || 0))} gaps</div></div>
+    </div>
+    <div class="reasons info"><b>To turn this into an order, tell me:</b><ul>${r.clarifying_questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ul></div>
+  </div>`;
+
+  const calls = it.llm_calls || [], c = (stage) => calls.find((x) => x.stage === stage);
+  const fallback = (it.notes || []).some((x) => x.includes("pick by Claude unavailable"));  // nothing picked automatically
+  html += renderSteps("How the agent built this proposal", [
+    stepRead(r, c("interpret")),
+    { title: "Understand: an idea, not an order", actors: ["claude", "rules"],
+      summary: esc(`intent '${it.llm_intent || it.intent}'` + (it.portions ? ` · ${it.portions} portions` : "") + " · goal: " + (it.culinary_goal || r.request).slice(0, 90)),
+      body: callBox(c("interpret"), "Claude chose 'recommend' from {order, recommend, clarify, out_of_scope}; with a complete order the rules would have overruled it.")
+        + `<div><b>Goal:</b> ${esc(it.culinary_goal || r.request)}</div>` },
+    { title: "Suggest dishes", actors: ["claude"],
+      summary: esc(`${r.recipes.length} dishes` + ((r.avoid || []).length ? " · avoids: " + r.avoid.join(", ") : "")),
+      body: callBox(c("recommend")) + `<ul class="why">${r.recipes.map((x) => `<li>${esc(x.name)} <span class="muted small-text">(${esc(x.course)}, ${esc(x.served)})</span></li>`).join("")}</ul>`
+        + ((r.assumptions || []).length ? `<div class="muted small-text" style="margin-top:6px">Assumptions: ${esc(r.assumptions.join(" "))}</div>` : "") },
+    { title: "Search ingredients in the catalogue", actors: ["rules"],
+      summary: esc(`${num(s.ingredients_searched || 0)} ingredients → ${num(s.candidates || 0)} real candidates (at most 8 each)`
+        + (Object.keys(r.diet_labels || {}).length ? ` · ${r.diet_removed || 0} ruled out by ${Object.values(r.diet_labels).join(", ")}` : "")),
+      body: `<div>Word search over Finnish, English and Swedish product names, using the search terms Claude wrote in step 3. English terms match whole words only, so 'pork' cannot match 'porkkana' (carrot). Pantry items (salt, oil, …) are not searched.</div>`
+        + (Object.keys(r.diet_labels || {}).length ? `<div style="margin-top:6px"><b>Hard requirements:</b> every candidate must pass ${esc(Object.values(r.diet_labels).join(", "))} (rules/diet_*.json) before Claude may pick it; ${num(r.diet_removed || 0)} did not.</div>` : "") },
+    { title: "Pick one product per ingredient", actors: ["claude"],
+      summary: fallback ? "Claude unavailable: nothing picked automatically, you choose from the candidates" : esc(`picked from real candidate IDs only · ${counts.OK || 0} available, ${counts.SUBSTITUTE || 0} substitutes`),
+      body: callBox(c("pick"), "A pick from another ingredient's candidates, or an unknown ID, is refused in code.")
+        + (c("substitute") ? `<div style="margin-top:8px"><b>Missing ingredients:</b> Claude suggested substitutes; each was searched, picked from real IDs and quoted live, and needs your OK.</div>` + callBox(c("substitute")) : "") },
+    { title: "Quote live price & stock", actors: ["live", "rules"],
+      summary: esc(`${num(s.quoted_products || 0)} products quoted · ${num((counts.UNAVAILABLE || 0) + (counts.NO_MATCH || 0))} gaps`),
+      body: `<ul class="why">${(r.api_evidence || []).map((x) => `<li>${esc(x.endpoint)} for ${x.products} products at ${dayTime(x.at)}, response SHA-256 <code>${esc(x.response_sha256.slice(0, 16))}…</code></li>`).join("")}</ul>
+        <div class="muted small-text">If the first pick cannot be ordered (cut-off passed, not deliverable), the runner-up is shown as a substitute.</div>` },
+    { title: "Outcome: a proposal, nothing ordered", actors: ["policy"], summary: "no purchasing rules run, because nothing is ordered",
+      body: "Turning a dish into an order sends each product through the order path: the same reading, retrieval, live checks and purchasing rules." },
+  ], `<div class="muted small-text" style="margin-top:10px">Audit file: <code>${esc(r.audit_file || "out/audit/" + r.order_id + ".md")}</code></div>`);
+
+  for (const rc of r.recipes) {
+    html += `<div class="card"><h2>${esc(rc.name)}</h2>
+      <div class="recipe-meta"><span class="tag">${esc(rc.course)}</span><span class="tag">${esc(rc.served)}</span></div>
+      <div>${esc(rc.description)}</div><div class="recipe-why">${esc(rc.why_it_fits)}</div>
+      <div class="tablewrap"><table>
+        <tr><th>Ingredient</th><th>Catalogue product</th><th class="num">Price</th><th>Delivery</th><th>Status</th></tr>
+        ${rc.lines.map((l) => {
+          const [lc, label] = LINE_STATUS[l.status] || ["warn", l.status];
+          const q = l.quote || {};
+          const per = l.qty_per_portion && l.unit ? `<div class="muted small-text">${num(l.qty_per_portion)} ${esc(l.unit)} / portion</div>` : "";
+          const est = l.estimate ? `<div class="muted small-text">≈ ${eur(l.estimate.approx_eur)} for ${num(l.estimate.quantity)} ${esc(l.estimate.unit)}</div>` : "";
+          const prod = l.product ? `${esc(l.product.name)} <span class="muted small-text">#${esc(l.product.productId)}</span>` : `<span class="muted">–</span>`;
+          const price = l.product && q.unit_price != null ? `${eur(q.unit_price)} / ${unit(q.sales_unit)}${q.comparison_price ? `<div class="muted small-text">${eur(q.comparison_price)} / ${esc(q.comparison_unit)}</div>` : ""}${est}` : "–";
+          const when = l.product && q.available_date ? `${day(q.available_date)}<div class="muted small-text">${q.order_cutoff ? "order by " + dayTime(q.order_cutoff) : ""}${q.days_early ? ` · ${q.days_early} d early` : ""}</div>` : "–";
+          return `<tr><td>${esc(l.ingredient)}${per}</td><td>${prod}${l.note ? `<div class="muted small-text">${esc(l.note)}</div>` : ""}</td>
+            <td class="num">${price}</td><td class="small-text">${when}</td><td><span class="pill ${lc}">${esc(label)}</span></td></tr>`;
+        }).join("")}
+      </table></div></div>`;
+  }
+
+  $("#out").innerHTML = html;
+}
+
+// ---------- Undo window, live-data badge, demo clock (shared) ----------
+function shaBadge(ev) {
+  if (!ev || !ev.length) return "";
+  return `<div class="sha" title="${esc(ev.map((x) => x.endpoint + " " + x.response_sha256).join("\n"))}">◉ Live data: ${ev.length} API response${ev.length > 1 ? "s" : ""} hashed · SHA-256 ${esc(ev[0].response_sha256.slice(0, 12))}… <span class="muted">(every hash is in the audit trail)</span></div>`;
+}
+function clockNote(r) {
+  return r.clock && r.clock.pinned ? `<div class="clock" title="AGENT_TODAY; prices, stock and cut-offs use the live server time">Demo clock: today = ${day(r.clock.today)}</div>` : "";
+}
+function undoRow(r) {
+  if (!["PLACED_AUTONOMOUSLY", "APPROVED_BY_HUMAN", "CONFIRMED_BY_HUMAN"].includes(r.status) || !r.cancel_until) return "";
+  if (new Date(r.cancel_until) < new Date()) return `<div class="muted small-text" style="margin-top:8px">The order cut-off ${dayTime(r.cancel_until)} has passed: changes go through Valio Aimo customer service.</div>`;
+  return `<div class="row"><button class="small ghost" onclick="cancelOrder()">Cancel order</button>
+    <button class="small ghost" onclick="startChange()">Change…</button>
+    <span class="muted small-text">You can still cancel or change this order until the order cut-off ${dayTime(r.cancel_until)}.</span></div>`;
+}
+async function cancelOrder() {
+  if (!window.confirm(`Cancel ${current.order_id}?`)) return;
+  try { current = await call("/api/cancel", { order_id: current.order_id }); render(current); } catch (e) { alert(e.message); }
+}
+function startChange() {
+  replacing = current.order_id;
+  $("#text").value = current.request;
+  $("#go").textContent = `Re-run as a change of ${replacing}`;
+  $("#hint").textContent = "Edit the request. The old order is cancelled and the new one is linked to it.";
+  window.scrollTo({ top: 0, behavior: "smooth" }); $("#text").focus();
+}
+function cancelledNote(r) {
+  const c = r.cancellation;
+  return c ? `<div class="reasons bad">Cancelled by ${esc(c.by)} at ${dayTime(c.at)} (${esc(c.reason)}), before the order cut-off ${dayTime(c.cancel_until)}.${r.replaced_by ? ` Replaced by <code>${esc(r.replaced_by)}</code>.` : ""}</div>` : "";
+}
+
+// ---------- Multi-line orders (basket): one card per decision, at most three choices, details folded ----------
+const TIER_UI = {
+  as_requested: ["ok", "Usual"],
+  best: ["ok", "Best"], better: ["info", "Better"], good: ["info", "Good"],
+  later: ["warn", "Later"], warn: ["warn", "Unverified"],
+};
+const TIER_ORDER = ["best", "better", "good", "later", "warn"];
+const PREF_LABEL = { price: "price", delivery: "delivery", stock: "stock", fit: "fit" };
+const titleCase = (s) => !s ? "" : s === s.toUpperCase()
+  ? s.toLowerCase().replace(/(^|[\s(\/-])([a-zåäö])/g, (m, a, b) => a + b.toUpperCase()) : s;
+const pname = (o) => titleCase(o.name_en || o.name);
+const cap = (s) => (s = titleCase(s || "")) && s[0].toUpperCase() + s.slice(1);
+const qty = (o) => (UNIT[o.salesUnit] === "kg" ? `${num(o.quantity)} kg` : `${num(o.quantity)}`) + " ×";
+
+function bOption(l, id) {
+  if (l.chosen && l.chosen.id === id) return l.chosen;
+  for (const t of TIER_ORDER) for (const o of l.tiers[t] || []) if (o.id === id) return o;
+  return null;
+}
+function bSelected(l) {
+  if (l.light === "green" || l.chosen) return l.chosen;
+  return bOption(l, bsel[l.key] || l.default_option);
+}
+function shownOptions(l) {  // the least-relaxed choices: the top option of the first three non-empty tiers
+  return TIER_ORDER.filter((t) => (l.tiers[t] || []).length).slice(0, 3).map((t) => l.tiers[t][0]);
+}
+function bPick(key, id) { bsel[key] = id; render(current); }
+function bAck(key, on) { on ? backs.add(key) : backs.delete(key); render(current); }
+async function bPref(answer) {
+  try { current = await call("/api/basket/preference", { order_id: current.order_id, answer }); bsel = {}; render(current); }
+  catch (e) { alert(e.message); }
+}
+async function bConfirm() {
+  document.querySelectorAll("#out button").forEach((b) => (b.disabled = true));
+  $("#busy").innerHTML = '<span class="spinner"></span>Re-checking price and stock live before anything is ordered…';
+  try {
+    current = await call("/api/basket/confirm", { order_id: current.order_id, choices: bsel, acks: [...backs] });
+    render(current); $("#busy").textContent = "";
+    window.scrollTo({ top: $("#out").offsetTop - 10, behavior: "smooth" });
+  } catch (e) {
+    alert(e.message); $("#busy").textContent = "";
+    document.querySelectorAll("#out button").forEach((b) => (b.disabled = false));
+  }
+}
+function groupLabel(r, l) {
+  const g = r.groups.find((x) => x.key === l.group);
+  if (!g || g.key === "all") return r.groups.filter((x) => x.portions > 0).length > 1 && l.portions !== r.portions ? `${num(l.portions)} regular portions` : "";
+  return `${num(g.portions)} portions, ${g.diet.map((d) => (r.diet_labels || {})[d] || d).join(" + ")}`;
+}
+function optionRow(l, x, sel, locked) {
+  const on = sel && sel.id === x.id, [pc, pl] = TIER_UI[x.tier];
+  return `<label class="opt ${on ? "on" : ""}"><input type="radio" name="o-${esc(l.key)}" ${on ? "checked" : ""} ${locked ? "disabled" : ""}
+      onchange="bPick('${esc(l.key)}','${esc(x.id)}')">
+    <div class="optline"><span class="pill ${pc}">${pl}</span>
+      <span class="optname"><b>${esc(pname(x))}</b><span class="muted small-text"> ${esc(x.summary || "")}</span></span>
+      <span class="num"><b>${eur(x.lineTotal)}</b><span class="muted small-text"> · ${day(x.availableDate)}</span></span></div></label>`;
+}
+function ruledOut(l) {  // the products that look suitable but are not: one per reason, the usual one first
+  if (!l.excluded.length) return "";
+  const picked = [], reasons = new Set();
+  for (const x of [...l.excluded.filter((e) => e.usual), ...l.excluded.filter((e) => e.lookalike), ...l.excluded]) {
+    const why = x.plain || x.reason;
+    if (picked.length < 2 && !reasons.has(why) && !picked.includes(x)) { picked.push(x); reasons.add(why); }
+  }
+  return `<div class="ruled"><b>Ruled out, never offered:</b><ul>${picked.map((x) =>
+      `<li>${esc(pname(x))}${x.usual ? ' <span class="muted small-text">(your usual)</span>' : ""}: <b>${esc(x.plain || x.reason)}</b></li>`).join("")}</ul>
+    ${l.excluded.length > picked.length ? `<details><summary class="small-text">${l.excluded.length - picked.length} more ruled out</summary><ul>${l.excluded.filter((x) => !picked.includes(x)).map((x) =>
+      `<li>${esc(pname(x))}: ${esc(x.plain || x.reason)}</li>`).join("")}</ul></details>` : ""}</div>`;
+}
+function ackBox(l, o) {
+  const on = backs.has(l.key) || !!(l.decision && l.decision.acknowledged);
+  return `<div class="reasons warnbox"><b>⚠ No allergen data is not the same as safe.</b>
+    <label class="ack"><input type="checkbox" ${on ? "checked" : ""} ${l.chosen ? "disabled" : ""} onchange="bAck('${esc(l.key)}', this.checked)"> I will check the package label on arrival before it is served.</label>
+    <div class="muted small-text">Recorded in the audit trail with an arrival check task. Never learned: next time the agent warns again.</div></div>`;
+}
+function decisionCard(r, l, locked) {
+  const o = bSelected(l), opts = shownOptions(l), all = TIER_ORDER.flatMap((t) => l.tiers[t] || []);
+  if (o && !opts.includes(o)) opts.push(o);
+  const fc = l.first_choice, gl = groupLabel(r, l);
+  const why = fc && fc.source === "order guide" && !l.allergy ? `Your usual ${esc(l.ingredient)} (${esc(pname(fc))}) can't be delivered in time.`
+    : l.allergy ? `None of the usual products is safe for these portions.` : esc(l.why);
+  const multi = TIER_ORDER.some((t) => (l.tiers[t] || []).length > 1);
+  return `<div class="card decide"><h2><span class="dot red"></span>${esc(cap(l.ingredient))}${gl ? ` <span class="muted">· ${esc(gl)}</span>` : ""} <span class="muted">· ${num(l.need.qty)} ${esc(l.need.unit || "")}</span></h2>
+    <div class="lead">${why} ${locked ? "" : "Choose one:"}</div>
+    ${l.allergy ? ruledOut(l) : ""}
+    ${opts.map((x) => optionRow(l, x, o, locked)).join("") || '<div class="reasons bad">No option meets the hard requirements.</div>'}
+    ${o && o.tier === "warn" ? ackBox(l, o) : ""}
+    ${!locked && multi ? `<div class="rank muted small-text">Rank the choices by: ${r.preference.options.map((k) =>
+      `<button class="link ${r.preference.answer === k ? "on" : ""}" onclick="bPref('${k}')">${PREF_LABEL[k] || k}</button>`).join(" · ")} <span>(ranking only, never a rule)</span></div>` : ""}
+    ${all.length > opts.length ? `<details><summary class="small-text">All ${all.length} options</summary>${all.filter((x) => !opts.includes(x)).map((x) => optionRow(l, x, o, locked)).join("")}</details>` : ""}
+  </div>`;
+}
+
+function renderBasket(r) {
+  const [cls, title] = STATUS[r.status] || ["warn", r.status];
+  const awaiting = r.status === "AWAITING_CONFIRMATION";
+  const lines = r.lines, red = lines.filter((l) => l.light === "red"), green = lines.filter((l) => l.light === "green");
+  const sel = lines.map((l) => [l, bSelected(l)]);
+  const total = sel.reduce((s, [, o]) => s + (o ? o.lineTotal : 0), 0);
+  const unresolved = sel.filter(([, o]) => !o).map(([l]) => l);
+  const needAck = sel.filter(([l, o]) => o && o.tier === "warn" && !backs.has(l.key) && !l.chosen).map(([l]) => l);
+  const it = r.interpretation || {}, calls = it.llm_calls || [], c = (st) => calls.find((x) => x.stage === st);
+  const what = (r.recipes || []).map((x) => cap(x.name)).join(", ");
+  const groups = r.groups.filter((g) => g.portions == null || g.portions > 0);
+  const who = r.portions ? `${num(r.portions)} portions` + (groups.length > 1 ? ` (${groups.map((g) => g.key === "all" ? `${num(g.portions)} regular` : `${num(g.portions)} ${g.diet.map((d) => (r.diet_labels || {})[d] || d).join(" + ")}`).join(", ")})` : "") : "";
+  let html = "";
+  if (r.simulation) html += `<div class="card sim"><b>${esc(r.simulation.label)}</b> <span class="small-text">· fault injection from <code>scenarios/${esc(r.simulation.name)}.json</code>, real data is unchanged in the audit trail</span></div>`;
+  html += `<div class="card banner ${cls}"><div class="status">${esc(what)} <span class="muted" style="font-weight:500">· ${esc(who)}</span></div>
+    <div class="muted">${title} · delivery ${day(r.deliver_by)} · ${awaiting ? (red.length ? `${red.length} of ${lines.length} line${lines.length > 1 ? "s" : ""} need${red.length === 1 ? "s" : ""} your choice` : "every line is ready") : ""}${r.human_decision && !awaiting ? ` by ${esc(r.human_decision.by)}, ${dayTime(r.human_decision.at)}` : ""}</div>
+    ${clockNote(r)}${cancelledNote(r)}</div>`;
+  // ready lines: one compact list
+  const readyRows = green.map((l) => { const o = l.chosen, gl = groupLabel(r, l); return `<tr><td><span class="dot green"></span>${esc(cap(l.ingredient))}${gl ? ` <span class="muted small-text">· ${esc(gl)}</span>` : ""}</td>
+    <td>${qty(o)} ${esc(pname(o))}</td><td class="num">${eur(o.lineTotal)}</td></tr>`; }).join("");
+  const readyTotal = green.reduce((s, l) => s + l.chosen.lineTotal, 0);
+  if (green.length) html += `<div class="card"><h2><span class="dot green"></span>${green.length} line${green.length > 1 ? "s" : ""} ready <span class="muted">· in time · ${eur(readyTotal)}</span></h2>
+    ${green.length <= 2 ? `<table>${readyRows}</table>` : `<details><summary class="small-text">Show the ${green.length} lines</summary><table>${readyRows}</table></details>`}</div>`;
+  for (const l of red) html += decisionCard(r, l, !awaiting);
+  if (r.pantry_warning) html += `<div class="reasons warnbox"><b>⚠ Allergy portions:</b> ${esc(r.pantry_warning)}</div>`;
+  if (awaiting) {
+    const blocked = unresolved.length ? `Choose an option for ${unresolved.map((l) => titleCase(l.ingredient)).join(", ")}`
+      : needAck.length ? "Tick the label-check box first" : "";
+    html += `<div class="card confirmbar"><button ${blocked ? "disabled" : ""} onclick="bConfirm()">Confirm order · ${eur(total)}</button>
+      <span class="muted small-text">${blocked ? esc(blocked) : "One confirmation for every line. Price and stock are re-checked live first; if anything changed, nothing is ordered."}</span></div>`;
+  }
+  if (r.status === "CONFIRMED_BY_HUMAN") {
+    html += `<div class="card"><h2>✓ Confirmed · ${eur((r.human_decision || {}).committed_total_eur)}</h2>
+      ${(r.tasks || []).map((t) => `<div class="reasons warnbox"><b>Arrival check, ${day(t.due)}:</b> ${esc(t.check)}</div>`).join("")}
+      ${((r.human_decision || {}).preference_updates || []).length ? `<div class="muted small-text">Learned from your choice (ranking only).</div>` : ""}
+      ${undoRow(r)}</div>`;
+  }
+  if (r.status === "STALE_QUOTE") {
+    html += `<div class="card"><div class="reasons bad"><b>Nothing was ordered:</b> the quote changed before confirmation.<ul>${(r.revalidation.changes || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>Run the request again for a fresh quote.</div></div>`;
+  }
+  // everything the agent did, folded
+  const steps = [stepRead(r, c("interpret")),
+    { title: "Understand: what, for whom, by when", actors: ["claude", "rules"], summary: esc(`${what} · ${who} · ${day(r.deliver_by)}`),
+      body: callBox(c("interpret")) + `<ul class="why">${groups.map((g) => `<li>${esc(g.name)}: ${g.portions != null ? num(g.portions) : "?"} portions${g.quote ? ` · from “${esc(g.quote)}” (${esc(g.read_by)})` : ""}</li>`).join("")}</ul>`
+        + ((it.issues || []).length ? `<div class="note">${it.issues.map(esc).join("<br>")}</div>` : "") },
+    { title: "Quantities", actors: [c("recipe") ? "claude" : "rules", "rules"], summary: esc(lines.map((l) => `${titleCase(l.ingredient)} ${num(l.need.qty)} ${l.need.unit || ""}`).join(" · ")),
+      body: callBox(c("recipe")) + `<ul class="why">${lines.map((l) => `<li>${esc(titleCase(l.ingredient))}${groupLabel(r, l) ? " (" + esc(groupLabel(r, l)) + ")" : ""}: ${esc(l.need.basis)}</li>`).join("")}</ul>`
+        + ((r.assumptions || []).length ? `<div class="muted small-text">${esc(r.assumptions.join(" "))}</div>` : "") },
+    { title: "Products, identity and allergen rules", actors: ["rules", "claude"], summary: esc(`${num(r.retrieval_stats.candidates)} catalogue candidates · reject / warn / pass per diet group`),
+      body: callBox(c("classify")) + `<ul class="why"><li><b>reject</b>: the data contradicts the need (contains milk protein, gluten …), even when a claim says otherwise. Never offered.</li><li><b>warn</b>: no allergen data. Offered only with your acknowledgement and a label check.</li><li><b>pass</b>: structured GS1 evidence or a reviewed rule.</li></ul>` },
+    { title: "Live price & stock", actors: ["live"], summary: esc(`${(r.api_evidence || []).length} API responses, SHA-256 in the audit trail`),
+      body: shaBadge(r.api_evidence) + `<div class="muted small-text">Prices held until ${dayTime(r.quote.valid_until)}. ${esc(r.quote.note)}</div>` },
+    { title: "Choices for red lines", actors: ["claude", "rules"], summary: "Best = same product · Better = a preference relaxed · Good = another ingredient · Later · Unverified",
+      body: (c("substitute") ? callBox(c("substitute")) + callBox(c("pick")) : "") + `<div class="muted small-text">Best: same product, pack ±25 % and unit price ≤ +5 % of your usual one. The cost compared is what this line costs, packs rounded up.</div>` }];
+  html += renderSteps("How the agent decided", steps,
+    `<div class="muted small-text" style="margin-top:10px">Audit file <code>${esc(r.audit_file || "out/audit/" + r.order_id + ".md")}</code></div>`);
+  $("#out").innerHTML = html;
+}
+
+function render(r) {
+  if (r.kind === "basket") return renderBasket(r);
+  if (r.status === "PROPOSAL_FOR_REVIEW") return renderProposal(r);
+  const [cls, title, subtitle] = STATUS[r.status] || ["warn", r.status, ""];
+  const hd = r.human_decision || {};
+  const shownIdx = hd.option ? hd.option - 1 : 0;
+  const chosen = r.options[shownIdx];
+  const failed = r.guardrail_checks.filter((c) => !c.ok);
+  const pending = r.status === "PENDING_APPROVAL";
+
+  let html = `<div class="card banner ${cls}">
+    <div class="status">${title} <span class="pill">${esc(r.order_id)}</span></div>
+    <div class="muted">${subtitle}${hd.by ? ` (${esc(hd.by)}, ${dayTime(hd.at)})` : ""}</div>`;
+  if (chosen && r.status !== "REJECTED_BY_HUMAN") {
+    const first = chosen.lines[0];
+    html += `<div class="facts">
+      <div style="grid-column: 1 / -1"><span>${pending ? "Recommended" : "Ordered"}</span>${chosen.lines.map((l) =>
+        `<b>${num(l.quantity)} ${UNIT[l.salesUnit] || esc(l.salesUnit)} × ${esc(l.name)}</b> <span class="muted small-text">(${num(l.amount)} ${esc(chosen.measure)}, #${esc(l.productId)})</span>`).join("<br>")}</div>
+      <div><span>Total excl. VAT</span><b>${eur(chosen.total_eur)}</b><div class="muted small-text">${eur(chosen.total_eur_incl_vat)} incl. VAT · ${eur(chosen.eur_per_unit)}/${esc(chosen.measure)}</div></div>
+      <div><span>Delivery</span><b>${day(first.availableDate)}</b><div class="muted small-text">order by ${dayTime(first.orderCutOff)}</div>${first.daysEarly ? `<div class="muted small-text">${first.daysEarly} day${first.daysEarly === 1 ? "" : "s"} before needed (${day(r.query.deliver_by)}): the earliest date the API offers</div>` : ""}</div>
+    </div>`;
+  }
+  html += shaBadge(r.api_evidence) + clockNote(r) + cancelledNote(r) + undoRow(r);
+  if (r.replaces) html += `<div class="reasons info">This order replaces <code>${esc(r.replaces)}</code> (cancelled before its cut-off).</div>`;
+  const rp = r.idempotent_replay;
+  if (rp) {
+    html += `<div class="reasons info"><b>${rp.kind === "request" ? "Same request as before" : "Already done"}:</b> this is
+      <code>${esc(r.order_id)}</code> from ${dayTime(r.created_at)}; nothing new was ordered <span class="muted small-text">(${esc(rp.why)})</span>
+      ${rp.kind === "request" ? `<div class="row"><button class="small ghost" onclick="submit(null, true)">Order again anyway</button>
+      <span class="muted small-text">a second order for the same goods needs your approval</span></div>` : ""}</div>`;
+  }
+  if (r.stale_quote) {
+    html += `<div class="reasons bad"><b>Your approval of <code>${esc(r.stale_quote.order_id)}</code> was not placed:</b> the quote changed after it was made.
+      <ul>${r.stale_quote.changes.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+      <div class="muted small-text">This is a fresh plan with live price and stock. Please decide again.</div></div>`;
+  }
+  const rv = r.revalidation;
+  if (rv && rv.ok && r.status === "APPROVED_BY_HUMAN") {
+    html += `<div class="reasons info">Re-checked live at approval: price and stock still hold. Committed ${eur(rv.committed_total_eur)}
+      <span class="muted small-text">(quoted ${eur(rv.quoted_total_eur)}; server time ${dayTime(rv.server_time)})</span></div>`;
+  }
+  if (pending && failed.length) {
+    html += `<div class="reasons"><b>Why I need your approval:</b><ul>${failed.map((c) => `<li>Rule not met: ${esc(c.check)}</li>`).join("")}</ul></div>
+      <div class="row"><button onclick="decide('approve', 1)">Approve recommended option</button>
+      <button class="ghost" onclick="decide('reject')">Reject</button>
+      <span class="muted small-text">or approve a different option in the table below</span></div>`;
+  }
+  if (r.status === "ESCALATED_NO_OPTION") {
+    html += `<div class="reasons bad"><b>Why nothing could be ordered:</b><ul>${r.next_steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul></div>`;
+    if ((r.relaxations || []).length && !r.superseded_by) {
+      html += `<div class="reasons info"><b>Options that need your OK</b> <span class="muted small-text">· diet and allergy requirements are never relaxed</span>
+        <ul class="relax">${r.relaxations.map((x) => `<li><div>${esc(x.text)}</div><div class="muted small-text">${esc(x.evidence)}</div>
+          <button class="small" onclick="relax('${esc(x.id)}')">Accept</button></li>`).join("")}</ul></div>`;
+    }
+  }
+  if (r.relaxed_from && r.relaxation) {
+    html += `<div class="reasons info">Re-run of <code>${esc(r.relaxed_from)}</code> with a change you accepted: ${esc(r.relaxation.text)}
+      <span class="muted small-text">(${esc(r.relaxation.accepted_by)}, ${dayTime(r.relaxation.accepted_at)})</span></div>`;
+  }
+  if (hd.preference_update) {
+    const b = hd.preference_update.before, a = hd.preference_update.after;
+    const changes = Object.keys(a).filter((k) => Math.abs(a[k] - b[k]) >= 0.01)
+      .map((k) => `${OBJ[k] || k} ${Math.round(b[k] * 100)}% → ${Math.round(a[k] * 100)}%`);
+    html += `<div class="reasons"><b>I learned from your choice.</b> Next time I'll weigh: ${esc(changes.join(", "))}.
+      <div class="muted small-text">Learning only changes the ranking. Your purchasing rules still apply.</div></div>`;
+  }
+  html += `</div>`;
+
+  // How the agent decided
+  const it = r.interpretation || {}, interp = (it.llm_calls || []).find((c) => c.stage === "interpret");
+  html += renderSteps("How the agent decided", [stepRead(r, interp), stepUnderstand(r, interp), stepFind(r), stepLive(r),
+    stepCompare(r), stepDecide(r)],
+    `<div class="muted small-text" style="margin-top:10px">Policy ${esc(r.policy.policy_version)} for ${esc(r.policy.buyer)} · audit file <code>${esc(r.audit_file || "out/audit/" + r.order_id + ".md")}</code> · order book <code>out/orders.json</code></div>`);
+
+  // Options
+  if (r.options.length) {
+    const w = Object.entries(r.weights).map(([k, v]) => `${OBJ[k] || k} ${Math.round(v * 100)}%`).join(" · ");
+    html += `<div class="card"><h2>Options compared</h2><div class="tablewrap"><table>
+      <tr><th>#</th><th>Product(s)</th><th class="num">€ / ${esc(r.options[0].measure || "L")}</th><th class="num">Total</th><th>Availability</th><th>Notes</th>${pending ? "<th></th>" : ""}</tr>
+      ${r.options.map((o, i) => `<tr class="${i === shownIdx ? "best" : ""}">
+        <td>${o.option}</td>
+        <td>${o.lines.map((l) => `${esc(l.name)} <span class="muted small-text">× ${num(l.quantity)}</span>`).join("<br>")}</td>
+        <td class="num">${eur(o.eur_per_unit)}</td>
+        <td class="num">${eur(o.total_eur)}</td>
+        <td class="small-text">${o.lines.map((l) => `${esc(l.availability)} · reliability ${pct(l.deliveryReliability)}`).join("<br>")}</td>
+        <td>${i === 0 ? '<span class="tag star">★ recommended</span>' : ""}${o.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}${o.kind !== "single" ? `<span class="tag">${o.kind} order</span>` : ""}${o.pareto_optimal ? "" : '<span class="tag">dominated</span>'}</td>
+        ${pending ? `<td><button class="small ${i === 0 ? "" : "ghost"}" onclick="decide('approve', ${o.option})">Approve</button></td>` : ""}
+      </tr>`).join("")}
+    </table></div><div class="muted small-text" style="margin-top:8px">Ranking weights: ${esc(w)}. "Dominated" means another option is at least as good on everything.</div></div>`;
+  }
+
+  $("#out").innerHTML = html;
+}
+</script>
+</body>
+</html>

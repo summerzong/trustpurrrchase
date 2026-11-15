@@ -1,0 +1,128 @@
+{
+  "_doc": "Human-owned policy for diet codes: the only diet file that needs careful review. Every code found in the data (diet_vocab.json) gets a rule automatically; this file adds thresholds, contradictions and composite concepts. A code with reviewed=false is still searched and verified, but an order that relies on it always needs a person (guardrail 'diet rule reviewed by a person'). Only the two lactose rules are reviewed; the rest are proposals drafted by Claude on 2026-11-14 from diet_coverage.md. Review a rule with `python3 review_diet_rule.py CODE` (sheet in review/) and sign it with `--sign CODE --by NAME`, which sets the review fields below without touching the rest of this file. The lactose rules still carry the placeholder reviewer 'demo team' and no signed sheet. Fields: reviewed, reviewed_by, reviewed_at (required once reviewed; shown in every audit trail that relies on the rule), review_sheet_sha256 (hash of the sheet the reviewer signed; the offline tests fail when the sheet changes later), label, description, nutrient_max / nutrient_min (g per 100 g, nutrient id from diet_vocab.json), nutrient_contradicts (default true), free_from (GS1 nonAllergen FREE_FROM codes that count as positive evidence, all required), contradict_allergens (GS1 allergen codes), contradict_may_contain (default false), also_satisfied_by (codes that also satisfy this one), inherent_categories (catalogue categories whose products are whole unprocessed produce and naturally meet the rule; an allergen entry still contradicts), note.",
+  "codes": {
+    "FREE_FROM_LACTOSE": {
+      "reviewed": true, "reviewed_by": "demo team", "reviewed_at": "2026-11-14", "label": "lactose-free",
+      "nutrient_max": 0.01, "contradict_allergens": ["ML"], "contradict_may_contain": false,
+      "note": "≤ 0.01 g lactose / 100 g. ML = lactose. AM (milk) is NOT a contradiction: lactose-free milk is still milk."
+    },
+    "LOW_LACTOSE": {
+      "reviewed": true, "reviewed_by": "demo team", "reviewed_at": "2026-11-14", "label": "low-lactose",
+      "nutrient_max": 1.0, "contradict_allergens": [],
+      "note": "≤ 1 g lactose / 100 g. Lactose-free products also qualify (derived from the claim grammar)."
+    },
+    "FREE_FROM_GLUTEN": {
+      "reviewed": false, "label": "gluten-free",
+      "free_from": ["AW"], "contradict_allergens": ["AW", "NR", "GB"], "contradict_may_contain": true,
+      "inherent_categories": ["17401", "17402", "17403", "17404", "17405", "17407", "17408", "17411", "17412", "17413", "17414", "17415", "17421", "17422", "17431", "17432", "17471", "17472", "17481"],
+      "note": "inherent_categories = whole unprocessed fresh vegetables, fruit, potatoes, root vegetables, mushrooms and berries (no milk or gluten allergen in any of them, checked 2026-11-14; peeled whole potatoes and roots (17422, 17432) are included; cooked, cut, mixed and dried produce is excluded). AW = cereals containing gluten, NR = rye, GB = barley (all suppressed under the claim, see diet_coverage.md). UW (wheat) is deliberately NOT a contradiction: gluten-free wheat starch exists. MAY_CONTAIN counts (coeliac)."
+    },
+    "FREE_FROM_WHEAT": {
+      "reviewed": false, "label": "wheat-free",
+      "free_from": ["UW"], "contradict_allergens": ["UW"], "contradict_may_contain": true,
+      "note": "Only 141 claims: the co-occurrence statistics are too small to suggest contradictions, so this is from the GS1 code list."
+    },
+    "FREE_FROM_EGGS": {
+      "reviewed": false, "label": "egg-free",
+      "free_from": ["AE"], "contradict_allergens": ["AE"], "contradict_may_contain": true
+    },
+    "FREE_FROM_SOY": {
+      "reviewed": false, "label": "soy-free",
+      "free_from": ["AY"], "contradict_allergens": ["AY"], "contradict_may_contain": true
+    },
+    "VEGAN": {
+      "reviewed": false, "label": "vegan",
+      "contradict_allergens": ["AM", "ML", "AE", "AF", "AC", "UM"], "contradict_may_contain": false,
+      "note": "Animal-derived allergens contradict the claim. MAY_CONTAIN is cross-contact and normal for vegan products (356 in the catalogue), so it does not count."
+    },
+    "VEGETARIAN": {
+      "reviewed": false, "label": "vegetarian",
+      "also_satisfied_by": ["VEGAN"], "contradict_allergens": ["AF", "AC", "UM"], "contradict_may_contain": false,
+      "note": "Fish and shellfish contradict the claim; meat cannot be detected from allergen data."
+    },
+    "FREE_FROM_FAT": {"reviewed": false, "label": "fat-free", "nutrient_max": 0.5},
+    "LOW_FAT": {
+      "reviewed": false, "label": "low-fat", "nutrient_max": 3.0,
+      "note": "EU 1924/2006: 3 g / 100 g for solids, 1.5 g / 100 ml for liquids; liquids are not distinguished here."
+    },
+    "FREE_FROM_SODIUM_SALT": {
+      "reviewed": false, "label": "salt-free", "nutrient_max": 0.0125,
+      "note": "≤ 0.005 g sodium = 0.0125 g salt / 100 g (SALTEQ is salt, not sodium)."
+    },
+    "LOW_SODIUM_SALT": {"reviewed": false, "label": "low-salt", "nutrient_max": 0.3, "note": "≤ 0.12 g sodium = 0.3 g salt / 100 g."},
+    "HIGH_FIBRE": {
+      "reviewed": false, "label": "high-fibre", "nutrient_min": 6.0, "nutrient_contradicts": false,
+      "note": "EU also accepts ≥ 3 g / 100 kcal, which is not modelled, so a low value supports nothing but is not treated as a contradiction."
+    },
+    "HIGH_PROTEIN": {"reviewed": false, "label": "high-protein", "note": "EU: ≥ 20 % of energy from protein; not modelled, claim only."},
+    "NO_ADDED_SUGARS": {"reviewed": false, "label": "no added sugar", "note": "The data cannot separate added from natural sugar: claim only."},
+    "DAIRY_FREE": {
+      "reviewed": false, "label": "dairy-free",
+      "description": "dairy-free / milk-free (no milk protein and no lactose, e.g. for a milk allergy). Different from lactose-free.",
+      "free_from": ["AM"], "contradict_allergens": ["AM", "ML"], "contradict_may_contain": true,
+      "also_satisfied_by": ["VEGAN"],
+      "inherent_categories": ["17401", "17402", "17403", "17404", "17405", "17407", "17408", "17411", "17412", "17413", "17414", "17415", "17421", "17422", "17431", "17432", "17471", "17472", "17481"],
+      "note": "No GS1 claim exists for this; evidence is the nonAllergen FREE_FROM AM entry (3,586 products), or the GS1 VEGAN claim (a vegan product has no milk ingredient), or whole unprocessed produce (inherent_categories). CONTAINS or MAY_CONTAIN AM / ML always contradicts, whatever the evidence. Proposed 2026-11-14 for the hospital scenario; needs a person's review."
+    },
+    "NUT_FREE": {
+      "reviewed": false, "label": "nut-free",
+      "description": "free from tree nuts and peanuts (allergy).",
+      "free_from": ["AN", "AP"], "contradict_allergens": ["AN", "AP"], "contradict_may_contain": true,
+      "note": "No GS1 claim exists for this; AN = tree nuts, AP = peanuts."
+    },
+    "FISH_FREE": {
+      "reviewed": false, "label": "fish-free",
+      "description": "free from fish (allergy).",
+      "free_from": ["AF"], "contradict_allergens": ["AF"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM AF entry; CONTAINS or MAY_CONTAIN AF contradicts. AF = fish in the GS1 AllergenTypeCode list (verify)."
+    },
+    "CRUSTACEAN_FREE": {
+      "reviewed": false, "label": "crustacean-free",
+      "description": "free from crustaceans: shrimp, crab, lobster (allergy).",
+      "free_from": ["AC"], "contradict_allergens": ["AC"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM AC entry; CONTAINS or MAY_CONTAIN AC contradicts. AC = crustaceans in the GS1 AllergenTypeCode list (verify)."
+    },
+    "MOLLUSC_FREE": {
+      "reviewed": false, "label": "mollusc-free",
+      "description": "free from molluscs: mussels, squid, snails (allergy).",
+      "free_from": ["UM"], "contradict_allergens": ["UM"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM UM entry; CONTAINS or MAY_CONTAIN UM contradicts. UM = molluscs in the GS1 AllergenTypeCode list (verify)."
+    },
+    "PEANUT_FREE": {
+      "reviewed": false, "label": "peanut-free",
+      "description": "free from peanuts (allergy).",
+      "free_from": ["AP"], "contradict_allergens": ["AP"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM AP entry; CONTAINS or MAY_CONTAIN AP contradicts. AP = peanuts in the GS1 AllergenTypeCode list (verify)."
+    },
+    "SESAME_FREE": {
+      "reviewed": false, "label": "sesame-free",
+      "description": "free from sesame (allergy).",
+      "free_from": ["AS"], "contradict_allergens": ["AS"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM AS entry; CONTAINS or MAY_CONTAIN AS contradicts. AS = sesame in the GS1 AllergenTypeCode list (verify)."
+    },
+    "CELERY_FREE": {
+      "reviewed": false, "label": "celery-free",
+      "description": "free from celery (allergy).",
+      "free_from": ["BC"], "contradict_allergens": ["BC"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM BC entry; CONTAINS or MAY_CONTAIN BC contradicts. BC = celery in the GS1 AllergenTypeCode list (verify)."
+    },
+    "MUSTARD_FREE": {
+      "reviewed": false, "label": "mustard-free",
+      "description": "free from mustard (allergy).",
+      "free_from": ["BM"], "contradict_allergens": ["BM"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM BM entry; CONTAINS or MAY_CONTAIN BM contradicts. BM = mustard in the GS1 AllergenTypeCode list (verify)."
+    },
+    "SULPHITE_FREE": {
+      "reviewed": false, "label": "sulphite-free",
+      "description": "free from sulphur dioxide and sulphites (allergy, sensitivity).",
+      "free_from": ["AU"], "contradict_allergens": ["AU"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM AU entry; CONTAINS or MAY_CONTAIN AU contradicts. AU = sulphites in the GS1 AllergenTypeCode list (verify)."
+    },
+    "LUPIN_FREE": {
+      "reviewed": false, "label": "lupin-free",
+      "description": "free from lupin (allergy).",
+      "free_from": ["NL"], "contradict_allergens": ["NL"], "contradict_may_contain": true,
+      "note": "EU major allergen without a GS1 claim: evidence is the nonAllergen FREE_FROM NL entry; CONTAINS or MAY_CONTAIN NL contradicts. NL = lupin in the GS1 AllergenTypeCode list (verify)."
+    }
+  }
+}

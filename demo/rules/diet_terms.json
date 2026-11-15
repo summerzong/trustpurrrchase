@@ -1,0 +1,504 @@
+{
+  "_doc": "Synonyms per diet code. 'request' = words a buyer uses (the rule parser reads them as nlu.DIET_TERMS); 'product_name' = words that appear in Finnish or English product names (weak name evidence in catalog.diet_evidence). The lactose entries were reviewed in the demo; every other entry was drafted by Claude on 2026-11-14 and needs a native-speaker review. Allergy phrasings ('fish allergy', 'allergic to sesame') map to the matching free-from code. Terms that start with a negation word ('no ...', 'without ...') are positive requirements and are not reported as exclusions.",
+  "FREE_FROM_LACTOSE": {
+    "request": [
+      "lactose-free",
+      "lactose free",
+      "laktoositon",
+      "laktosfri",
+      "without lactose",
+      "no lactose"
+    ],
+    "product_name": [
+      "laktoositon",
+      "lactose free",
+      "lactose-free"
+    ]
+  },
+  "LOW_LACTOSE": {
+    "request": [
+      "low-lactose",
+      "low lactose",
+      "vähälaktoosinen"
+    ],
+    "product_name": [
+      "vähälaktoosinen",
+      "low lactose",
+      "low-lactose",
+      "hyla"
+    ]
+  },
+  "FREE_FROM_GLUTEN": {
+    "request": [
+      "gluten-free",
+      "gluten free",
+      "gluteeniton",
+      "glutenfri",
+      "without gluten",
+      "no gluten",
+      "coeliac",
+      "celiac",
+      "keliakia",
+      "celiaki",
+      "allergic to gluten",
+      "gluten allergy",
+      "gluteeniallergia",
+      "glutenallergi"
+    ],
+    "product_name": [
+      "gluteeniton",
+      "gluten free",
+      "gluten-free"
+    ]
+  },
+  "FREE_FROM_WHEAT": {
+    "request": [
+      "wheat-free",
+      "wheat free",
+      "vehnätön",
+      "vetefri",
+      "without wheat",
+      "no wheat",
+      "wheat allergy",
+      "allergic to wheat",
+      "vehnäallergia"
+    ],
+    "product_name": [
+      "vehnätön",
+      "wheat free",
+      "wheat-free"
+    ]
+  },
+  "FREE_FROM_EGGS": {
+    "request": [
+      "egg-free",
+      "egg free",
+      "kananmunaton",
+      "munaton",
+      "äggfri",
+      "without eggs",
+      "no eggs",
+      "eggs allergy",
+      "allergic to eggs",
+      "kananmuna-allergia",
+      "egg allergy"
+    ],
+    "product_name": [
+      "kananmunaton",
+      "munaton",
+      "egg free",
+      "egg-free"
+    ]
+  },
+  "FREE_FROM_SOY": {
+    "request": [
+      "soy-free",
+      "soy free",
+      "soya-free",
+      "soijaton",
+      "sojafri",
+      "without soy",
+      "no soy",
+      "soy allergy",
+      "allergic to soy",
+      "soija-allergia"
+    ],
+    "product_name": [
+      "soijaton",
+      "soy free",
+      "soy-free",
+      "soya free"
+    ]
+  },
+  "FREE_FROM_FAT": {
+    "request": [],
+    "product_name": [
+      "rasvaton",
+      "fat free",
+      "fat-free"
+    ],
+    "_note": "No request terms on purpose: 'fat-free' / 'rasvaton' are read as the fat_level preference (nlu.FAT_TERMS)."
+  },
+  "LOW_FAT": {
+    "request": [],
+    "product_name": [
+      "vähärasvainen",
+      "low fat",
+      "low-fat"
+    ],
+    "_note": "No request terms on purpose: fat level is a preference (nlu.FAT_TERMS)."
+  },
+  "FREE_FROM_SODIUM_SALT": {
+    "request": [
+      "salt-free",
+      "salt free",
+      "suolaton",
+      "saltfri",
+      "without salt",
+      "no salt"
+    ],
+    "product_name": [
+      "suolaton",
+      "salt free",
+      "unsalted"
+    ]
+  },
+  "LOW_SODIUM_SALT": {
+    "request": [
+      "low-salt",
+      "low salt",
+      "low-sodium",
+      "low sodium",
+      "vähäsuolainen"
+    ],
+    "product_name": [
+      "vähäsuolainen",
+      "low salt",
+      "low sodium"
+    ]
+  },
+  "HIGH_FIBRE": {
+    "request": [
+      "high-fibre",
+      "high fibre",
+      "high-fiber",
+      "high fiber",
+      "runsaskuituinen",
+      "kuitupitoinen",
+      "fiberrik"
+    ],
+    "product_name": [
+      "runsaskuituinen",
+      "kuitupitoinen",
+      "high fibre",
+      "high fiber"
+    ]
+  },
+  "HIGH_PROTEIN": {
+    "request": [
+      "high-protein",
+      "high protein",
+      "runsasproteiininen",
+      "proteiinipitoinen",
+      "proteinrik"
+    ],
+    "product_name": [
+      "runsasproteiininen",
+      "proteiinipitoinen",
+      "high protein"
+    ]
+  },
+  "NO_ADDED_SUGARS": {
+    "request": [
+      "no added sugar",
+      "without added sugar",
+      "ei lisättyä sokeria",
+      "utan tillsatt socker"
+    ],
+    "product_name": [
+      "ei lisättyä sokeria",
+      "no added sugar"
+    ]
+  },
+  "FREE_FROM_SWEETENERS": {
+    "request": [
+      "sweetener-free",
+      "no sweeteners",
+      "without sweeteners",
+      "makeutusaineeton"
+    ],
+    "product_name": [
+      "makeutusaineeton",
+      "no sweeteners"
+    ]
+  },
+  "FREE_FROM_ARTIFICIAL_SWEETENERS": {
+    "request": [
+      "no artificial sweeteners",
+      "without artificial sweeteners"
+    ],
+    "product_name": [
+      "no artificial sweeteners"
+    ]
+  },
+  "FREE_FROM_ADDITIVES": {
+    "request": [
+      "additive-free",
+      "no additives",
+      "without additives",
+      "lisäaineeton",
+      "tillsatsfri"
+    ],
+    "product_name": [
+      "lisäaineeton",
+      "no additives"
+    ]
+  },
+  "FREE_FROM_PRESERVATIVES": {
+    "request": [
+      "preservative-free",
+      "no preservatives",
+      "without preservatives",
+      "säilöntäaineeton"
+    ],
+    "product_name": [
+      "säilöntäaineeton",
+      "no preservatives"
+    ]
+  },
+  "FREE_FROM_COLOURING_AGENTS": {
+    "request": [
+      "no colourings",
+      "no colorings",
+      "no artificial colours",
+      "no artificial colors",
+      "väriaineeton"
+    ],
+    "product_name": [
+      "väriaineeton",
+      "no colourings"
+    ]
+  },
+  "FREE_FROM_GMO": {
+    "request": [
+      "gmo-free",
+      "gmo free",
+      "non-gmo",
+      "geenimuuntelematon"
+    ],
+    "product_name": [
+      "gmo-free",
+      "non-gmo",
+      "geenimuuntelematon"
+    ]
+  },
+  "VEGAN": {
+    "request": [
+      "vegan",
+      "vegaani",
+      "vegansk"
+    ],
+    "product_name": [
+      "vegaaninen",
+      "vegaani",
+      "vegan"
+    ]
+  },
+  "VEGETARIAN": {
+    "request": [
+      "vegetarian",
+      "kasvis",
+      "vegetarisk"
+    ],
+    "product_name": [
+      "kasvis",
+      "vegetarian"
+    ]
+  },
+  "DAIRY_FREE": {
+    "request": [
+      "dairy-free",
+      "dairy free",
+      "milk-free",
+      "maidoton",
+      "mjölkfri",
+      "without dairy",
+      "no dairy",
+      "milk allergy",
+      "allergic to milk",
+      "maitoallergia",
+      "mjölkallergi",
+      "allergic to milk protein",
+      "milk protein allergy",
+      "maitoproteiiniallergia",
+      "mjölkproteinallergi"
+    ],
+    "product_name": [
+      "maidoton",
+      "dairy free",
+      "dairy-free",
+      "milk free"
+    ]
+  },
+  "NUT_FREE": {
+    "request": [
+      "nut-free",
+      "nut free",
+      "pähkinätön",
+      "nötfri",
+      "without nuts",
+      "no nuts",
+      "nuts allergy",
+      "allergic to nuts",
+      "pähkinäallergia",
+      "nötallergi",
+      "nut allergy"
+    ],
+    "product_name": [
+      "pähkinätön",
+      "nut free",
+      "nut-free"
+    ]
+  },
+  "FISH_FREE": {
+    "request": [
+      "fish-free",
+      "fish free",
+      "no fish",
+      "without fish",
+      "kalaton",
+      "fiskfri",
+      "kala-allergia",
+      "fish allergy",
+      "allergic to fish"
+    ],
+    "product_name": [
+      "kalaton",
+      "fish free",
+      "fish-free"
+    ]
+  },
+  "CRUSTACEAN_FREE": {
+    "request": [
+      "shellfish-free",
+      "shellfish free",
+      "crustacean-free",
+      "no shellfish",
+      "without shellfish",
+      "äyriäisetön",
+      "skaldjursfri",
+      "äyriäisallergia",
+      "shellfish allergy",
+      "allergic to shellfish",
+      "crustaceans allergy",
+      "allergic to crustaceans"
+    ],
+    "product_name": [
+      "äyriäisetön",
+      "shellfish free"
+    ]
+  },
+  "MOLLUSC_FREE": {
+    "request": [
+      "mollusc-free",
+      "mollusk-free",
+      "no molluscs",
+      "nilviäisetön",
+      "blötdjursfri",
+      "shellfish-free",
+      "shellfish free",
+      "no shellfish",
+      "molluscs allergy",
+      "allergic to molluscs",
+      "shellfish allergy",
+      "allergic to shellfish"
+    ],
+    "product_name": [
+      "nilviäisetön"
+    ]
+  },
+  "PEANUT_FREE": {
+    "request": [
+      "peanut-free",
+      "peanut free",
+      "no peanuts",
+      "without peanuts",
+      "maapähkinätön",
+      "jordnötsfri",
+      "maapähkinäallergia",
+      "peanuts allergy",
+      "allergic to peanuts",
+      "peanut allergy"
+    ],
+    "product_name": [
+      "maapähkinätön",
+      "peanut free",
+      "peanut-free"
+    ]
+  },
+  "SESAME_FREE": {
+    "request": [
+      "sesame-free",
+      "sesame free",
+      "no sesame",
+      "without sesame",
+      "seesamiton",
+      "sesamfri",
+      "seesamiallergia",
+      "sesame allergy",
+      "allergic to sesame"
+    ],
+    "product_name": [
+      "seesamiton",
+      "sesame free"
+    ]
+  },
+  "CELERY_FREE": {
+    "request": [
+      "celery-free",
+      "celery free",
+      "no celery",
+      "without celery",
+      "selleritön",
+      "sellerifri",
+      "selleriallergia",
+      "celery allergy",
+      "allergic to celery"
+    ],
+    "product_name": [
+      "selleritön"
+    ]
+  },
+  "MUSTARD_FREE": {
+    "request": [
+      "mustard-free",
+      "mustard free",
+      "no mustard",
+      "without mustard",
+      "sinapiton",
+      "senapsfri",
+      "sinappiallergia",
+      "mustard allergy",
+      "allergic to mustard"
+    ],
+    "product_name": [
+      "sinapiton"
+    ]
+  },
+  "SULPHITE_FREE": {
+    "request": [
+      "sulphite-free",
+      "sulfite-free",
+      "sulphite free",
+      "sulfite free",
+      "no sulphites",
+      "no sulfites",
+      "sulfiititon",
+      "sulfitfri",
+      "sulphites allergy",
+      "allergic to sulphites",
+      "sulfites allergy",
+      "allergic to sulfites"
+    ],
+    "product_name": [
+      "sulfiititon",
+      "sulphite free",
+      "sulfite free"
+    ]
+  },
+  "LUPIN_FREE": {
+    "request": [
+      "lupin-free",
+      "lupine-free",
+      "lupin free",
+      "no lupin",
+      "lupiiniton",
+      "lupinfri",
+      "lupin allergy",
+      "allergic to lupin"
+    ],
+    "product_name": [
+      "lupiiniton"
+    ]
+  }
+}

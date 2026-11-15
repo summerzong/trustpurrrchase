@@ -1,0 +1,26 @@
+{
+  "_doc": "Human-reviewed product type definitions. A request for a type listed here is retrieved with these deterministic rules (category codes, include terms, excluded subtypes). Any other product ('other') is retrieved generically: catalogue word search, then Claude classifies every candidate (is the product / variant / contains it / different product), and the order always needs a person (guardrail 'product type reviewed by a person'). To let a new type order autonomously, add it here, generate its review sheet with `python3 review_product_type.py TYPE` and sign it with `--sign TYPE --by NAME` (sets reviewed, reviewed_by, reviewed_at and review_sheet_sha256). milk still carries the placeholder reviewer 'demo team' and no signed sheet. Fields: label, measure (L, KG or PCS), density_kg_per_l (for CO2e of liquids), categories, include (name terms; a product must contain one), exclude (name term -> reason), request (buyer words per language, used by the rule parser), note.",
+  "types": {
+    "milk": {
+      "reviewed": true,
+      "reviewed_by": "demo team",
+      "reviewed_at": "2026-11-14",
+      "label": "milk",
+      "measure": "L",
+      "density_kg_per_l": 1.03,
+      "categories": ["10400"],
+      "include": ["maito", "milk"],
+      "exclude": {
+        "piimä": "sour milk (piimä) is not drinking milk",
+        "sour milk": "sour milk is not drinking milk",
+        "kahvi": "coffee milk / coffee drink, not plain milk",
+        "latte": "flavoured coffee drink",
+        "kaakao": "cocoa drink",
+        "vanilja": "flavoured milk drink",
+        "soygurt": "plant-based yoghurt"
+      },
+      "request": {"en": ["milk"], "fi": ["maito"], "sv": ["mjölk"]},
+      "note": "Category 10400 = milk & milk drinks, inferred from the data (category names are not in the data set)."
+    }
+  }
+}
