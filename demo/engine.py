@@ -395,7 +395,7 @@ def explain(plan, plans, n_offers, query, labels=None):
     m = plan["measure"]
     cut_text = ("" if not cut else f"; order cut-off {cut} is still open." if o.get("delivery_confirmed", True)
                 else f"; the cut-off {cut} for that date has passed, so the date is not confirmed.")
-    out.append(f"Covers {plan['amount']:,.0f} {m} of the {plan['need']:,.0f} {m} needed and arrives {o['available_date']}"
+    out.append(f"Covers {plan['amount']:,.6g} {m} of the {plan['need']:,.6g} {m} needed and arrives {o['available_date']}"
                + (f" (deadline {query['deliver_by']})" if query.get("deliver_by") else "")
                + (cut_text or "."))
     others = [p for p in plans if p is not plan]

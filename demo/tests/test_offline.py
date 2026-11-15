@@ -232,6 +232,29 @@ class LlmMerge(unittest.TestCase):
         _, tr = self.run_with("1000 l lactose-free milk by Monday", _envelope(order=_order(100)))
         self.assertTrue(any("interpretation mismatch on 'quantity'" in i for i in tr["issues"]))
 
+    def test_headcount_estimates_an_open_quantity_for_a_named_product(self):
+        order = _order(None, None, None, (), {"product_type": "apples"})
+        order.update(product_type="other", product={"name_en": "apples"})
+        env = _envelope(order=order, portions=2, portions_quote="2 people",
+                        serving_estimate={"per_person": 0.15, "unit": "KG"})
+        text = "I want to order some apples for this weekend for 2 people"
+        q, tr = self.run_with(text, env)
+        self.assertEqual((q["quantity"], q["unit"], q["deliver_by"]), (0.3, "KG", "2026-11-14"))
+        self.assertFalse(tr["blocking"])
+        self.assertEqual(tr["estimated_quantity"], {"portions": 2, "per_person": 0.15})
+        self.assertEqual(engine.guardrails(_plan("KG"), q, _policy(), tr["issues"])[0], "NEEDS_HUMAN_APPROVAL")
+
+        q, tr = self.run_with(text.replace("2 people", "two people"), dict(env, portions_quote="two people"))
+        self.assertEqual(q["quantity"], 0.3)
+        q, tr = self.run_with("I need apples for the weekend", env)
+        self.assertIn("quantity missing", tr["blocking"])
+        q, tr = self.run_with("I need 2 cartons of apples for 2 people", env)
+        self.assertIn("without a pack size", tr["blocking"][0])
+        q, tr = self.run_with("I need 1 kg of apples for 2 people",
+                              dict(env, order=dict(order, quantity=1, unit="KG")))
+        self.assertEqual((q["quantity"], q["unit"]), (1, "KG"))
+        self.assertNotIn("estimated_quantity", tr)
+
     def test_recommend_intent(self):
         _, tr = self.run_with(RHUBARB, _envelope("recommend", culinary_goal="hot rhubarb mains"))
         self.assertEqual((tr["intent"], tr["blocking"]), ("recommend", []))
@@ -314,10 +337,15 @@ class LiveRules(unittest.TestCase):
 
 
 class Dates(unittest.TestCase):
+    def test_weekend_on_sunday_means_upcoming_saturday(self):
+        sunday = dt.date(2026, 11, 15)
+        self.assertEqual(nlu.parse_date("for this weekend", sunday), ("2026-11-21", []))
+
     def test_dates(self):
         cases = {  # request -> (ISO date or None, fragment of an issue or None)
             "by Monday": ("2026-11-16", None),
             "by tomorrow": ("2026-11-15", None),
+            "for this weekend": ("2026-11-14", None),
             "the day after tomorrow": ("2026-11-16", None),
             "in 3 days": ("2026-11-17", None),
             "by 16.11.": ("2026-11-16", None),

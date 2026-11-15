@@ -905,7 +905,9 @@ function markRequest(um, text, r) {  // highlight what the rule parser read (and
     tags.push([`By ${day(r.deliver_by)}`]);
   } else if (r.query) {
     const q = r.query, label = (r.product || {}).label || q.product_type || "product";
-    tags.push([`${cap(label)}${q.quantity ? ` · ${num(q.quantity)} ${q.unit || ""}` : ""}`]);
+    const estimate = (r.interpretation || {}).estimated_quantity;
+    const amount = q.quantity ? ` · ${estimate ? "Est. " : ""}${q.quantity.toLocaleString("en-GB")} ${mU(q.unit)}` : "";
+    tags.push([`${cap(label)}${amount}`]);
     for (const d of q.diet || []) tags.push([`${cap((r.diet_labels || {})[d] || d)} · hard`, 1]);
     if (q.deliver_by) tags.push([`By ${day(q.deliver_by)}`]);
     if ((q.optimize_for || []).length) tags.push([q.optimize_for.join(" + ")]);
@@ -1000,7 +1002,10 @@ function applyOrderStatus(r, g) {
     g.banner = failed.length ? ["warn", `<b>Needs your approval</b> · ${failed.map((c) => esc(c.check)).join(" · ")}`]
       : ["ok", `<b>Ready to order</b> · every purchasing rule passes. Maito never orders on its own: place the order from the cart to confirm.`];
     renderAll();
-    say(failed.length ? "The recommended option is in the cart. Your purchasing rules need a person here: change it if you like, then place the order from the cart."
+    const estimate = (r.interpretation || {}).estimated_quantity;
+    if (estimate) {
+      say(`For ${num(estimate.portions)} people, I estimated ${g.need.toLocaleString("en-GB")} ${g.unit}. The recommended option in your cart is ${first.fixedQty.toLocaleString("en-GB")} ${g.unit}. Review it in the cart before placing the order.`);
+    } else say(failed.length ? "The recommended option is in the cart. Your purchasing rules need a person here: change it if you like, then place the order from the cart."
       : "Ranked on the right, and every purchasing rule passes. The recommended option is in the cart. I never order on my own: place the order from the cart to confirm.");
   } else if (r.status === "ESCALATED_NO_OPTION") {
     g.status = "out"; R.done = true; g.showItems = false;

@@ -126,6 +126,7 @@ _RELATIVE = [(re.compile(r"\b(day after tomorrow|ylihuomenna|i övermorgon|över
              (re.compile(r"\b(today|tänään|idag|i dag)\b"), 0)]
 _IN_DAYS_RE = re.compile(r"\b(?:in|within)\s+(\d{1,2})\s+days?\b|\b(\d{1,2})\s+päivän\s+(?:päästä|sisällä|kuluessa)\b"
                          r"|\b(?:om|inom)\s+(\d{1,2})\s+dagar\b")
+_WEEKEND_RE = re.compile(r"\b(?:for|by)\s+(?:(?:this|the)\s+)?weekend\b")
 _VAGUE_RE = re.compile(r"\b(early next week|next week|this week|end of (?:the )?(?:week|month)|asap|as soon as possible"
                        r"|ensi viikolla|ensi viikoksi|tällä viikolla|kuun lopussa|mahdollisimman pian"
                        r"|nästa vecka|denna vecka|snarast|så snart som möjligt)\b")
@@ -204,6 +205,10 @@ REQUEST_SCHEMA = _obj({
     "culinary_goal": _nullable({"type": "string"}),
     "portions": _nullable({"type": "number"}),
     "portions_quote": {"type": "string", "description": "verbatim words stating the portions, or an empty string"},
+    "serving_estimate": _obj({
+        "per_person": {"type": "number", "description": "Estimated weight or volume per person, or zero if unused"},
+        "unit": {"type": "string", "enum": ["KG", "L", ""]},
+    }),
     "diet": {"type": "array", "items": {"type": "string", "enum": DIET_CODES},
              "description": "Dietary requirements every dish or product must meet, also for intent recommend "
                             "(for an order, the same codes as order.diet)."},
@@ -385,6 +390,10 @@ def _parse_date(text, today):
         return None, issues, chosen_spans
     if chosen:
         return chosen[0].isoformat(), issues, chosen_spans
+    weekend = _WEEKEND_RE.search(t)
+    if weekend:
+        saturday = today + dt.timedelta(days=(5 - today.weekday()) % 7)
+        return saturday.isoformat(), issues, [weekend.span()]
     vague = _VAGUE_RE.search(t)
     if vague:
         issues.append(f"delivery time '{vague.group(0)}' is not a single date; please give a date")
@@ -626,9 +635,11 @@ def quote_spans(text, trace):
 
 
 # --- Portions and diet sub-groups (rules side; Claude reads them too) ----------------
-_PEOPLE = (r"guests|patients|people|persons|portions|servings|covers|pax|diners|residents|children|kids|pupils"
+_PEOPLE = (r"guests?|patients?|people|persons?|portions?|servings?|covers|pax|diners|residents|children|kids|pupils"
            r"|vierasta|annosta|potilasta|henkeä|hengelle|gäster|portioner|patienter|personer")
-_PORTIONS_RE = re.compile(rf"(?<![\d.,])(\d{{1,5}})\s+(?:[a-zåäö]+\s+)?({_PEOPLE})\b")
+_PORTION_WORDS = _ALT([w for w in (*NUMBER_WORDS, *SCALE_WORDS) if w not in ("a", "an")])
+_PORTIONS_RE = re.compile(rf"(?<![\w.,])(\d{{1,5}}|(?:{_PORTION_WORDS})(?:[\s-]+(?:{_PORTION_WORDS}))*)"
+                          rf"\s+(?:[a-zåäö]+\s+)?({_PEOPLE})\b")
 _GROUP_NUM = rf"\d{{1,4}}|{_ALT([w for w, n in NUMBER_WORDS.items() if n > 0 and len(w) > 2])}"
 _GROUP_RE = re.compile(rf"\b({_GROUP_NUM})\s+(?:of\s+(?:them|these|those|the\s+[a-zåäö]+)\s+|(?:[a-zåäö]+\s+){{0,2}}?)"
                        r"(?:are|is|have|has|with|who\s+are)?\s*(?:an?\s+|severe\s+|severely\s+)?"
@@ -651,7 +662,11 @@ def allergy_items():
 def parse_portions(text):
     """(number of portions or guests, span) or (None, None): '100 guests', 'for 40 patients'."""
     m = _PORTIONS_RE.search(text.lower())
-    return (float(m.group(1)), m.span()) if m else (None, None)
+    if not m:
+        return None, None
+    word = m.group(1)
+    amount = int(word) if word.isdigit() else _words_to_number(word)
+    return (float(amount), m.span()) if amount else (None, None)
 
 
 def parse_diet_groups(text):
@@ -838,8 +853,8 @@ def _interpret_system(today):
         "You turn a food-service buyer's message to a wholesaler (Valio Aimo, Finland) into structured data "
         f"for a purchasing agent. Today is {today.isoformat()} ({today.strftime('%A')}).\n\n"
         "intent:\n"
-        "- order: the buyer asks to buy a specific food-service product and gives a usable quantity and unit. "
-        "Fill `order`.\n"
+        "- order: the buyer asks to buy a specific food-service product and gives a usable quantity and unit "
+        "or only a headcount for which a typical serving can reasonably be estimated. Fill `order`.\n"
         "- recommend: the buyer describes a goal (a menu, an event, a theme) and asks for ideas rather "
         "than naming products or dishes to buy. Set `order` to null and summarise the goal, cuisine style, constraints and "
         "anything already planned in `culinary_goal`.\n"
@@ -854,6 +869,13 @@ def _interpret_system(today):
         "- Only extract what the message states; never invent preferences or values. Use null (or an empty "
         "list) when the message does not state a field. A missing quantity is null, not a guess.\n"
         "- Resolve relative dates such as 'by Monday' to the next such date as an ISO date.\n"
+        "- 'For this weekend' or 'for the weekend' means by the upcoming Saturday, including today if it is Saturday.\n"
+        "- If a specific food and headcount are given but the buyer leaves the amount open, return a typical "
+        "serving estimate in `serving_estimate` in KG or L per person. Leave order.quantity and order.unit null. "
+        "Example: 'some apples for this weekend for 2 people' is an order for apples with portions 2 "
+        "and a serving estimate of 0.15 KG per person. Keep the food named by the buyer and quote it verbatim. "
+        "Use zero and an empty unit when there is an explicit amount, the buyer gives a package count "
+        "without a size, or a serving cannot reasonably be estimated.\n"
         "- 'lactose-free' maps to FREE_FROM_LACTOSE; 'low-lactose' is different and maps to LOW_LACTOSE.\n"
         "- 'Unsalted' is a product description (e.g. 'unsalted butter'), not a claim of 'salt-free'. "
         "Keep it in the product name and search terms; use FREE_FROM_SODIUM_SALT only for a stated salt-free requirement.\n"
@@ -1196,6 +1218,8 @@ def _apply_llm(env, rules, text, trace):
 
     llm = dict(llm)
     ev = dict(llm.pop("evidence", None) or {})
+    if rules["deliver_by"] and _WEEKEND_RE.search(text.lower()):
+        llm["deliver_by"] = rules["deliver_by"]
     trace["llm_evidence"] = ev
     checks = trace["field_checks"]
     for f in CRITICAL_FIELDS:
@@ -1282,12 +1306,35 @@ def interpret(text, today, use_llm=True):
         return q, trace
     _resolve_brands(q, trace)
     trace["issues"] += hints["issues"]
+    _apply_serving_estimate(text, q, trace)
     trace["blocking"] = hints["blocking"] + [e for e in _validate(q) if not (
         hints["blocking"] and e in ("quantity missing", "unit missing"))]  # cannot search safely without these
     if trace.get("llm_intent") in ("clarify", "out_of_scope"):
         trace["blocking"].append("the message does not contain an actionable food-service request")
     trace["issues"] += trace["blocking"]
     return q, trace
+
+
+def _apply_serving_estimate(text, query, trace):
+    """Use a serving estimate for a named product only when the buyer leaves the amount open."""
+    env = trace.get("llm_output") or {}
+    order = env.get("order") or {}
+    rules, hints = trace["rules_output"], trace["rules_hints"]
+    if (trace.get("llm_intent") != "order" or not query.get("product_type")
+            or rules.get("quantity") is not None or order.get("quantity") is not None
+            or order.get("unit") or hints["blocking"] or trace["issues"] or trace.get("diet_groups")):
+        return
+    estimate = env.get("serving_estimate") or {}
+    per_person, unit = estimate.get("per_person", 0), estimate.get("unit")
+    portions, _ = parse_portions(text)
+    if not portions or not 0 < per_person <= 5 or unit not in ("KG", "L"):
+        return
+    quantity = round(per_person * portions, 3)
+    if not quantity:
+        return
+    query.update(quantity=quantity, unit=unit)
+    trace["estimated_quantity"] = {"portions": portions, "per_person": per_person}
+    trace["issues"].append(f"estimated {quantity:g} {unit} for {portions:g} people; please confirm the amount")
 
 
 def _inside(span, spans):
