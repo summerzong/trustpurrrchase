@@ -131,7 +131,7 @@ def run_request(text, policy, use_llm=True, persist=True, idempotency_key=None, 
                                  f"({prior['order_id']})")
             return _replay(prior, "same idempotency key")
     query, trace = nlu.interpret(text, today_, use_llm=use_llm)
-    client = AimoClient(customer=policy["customer_id"])
+    client = None if trace.get("past_delivery_date") else AimoClient(customer=policy["customer_id"])
     if trace.get("intent") == "order" and trace.get("diet_groups") and not trace["blocking"]:
         # one product, but some portions have their own diet: split it per group instead of ordering
         # the same product for everyone (the whole-order diet would ignore the sub-group)
@@ -175,6 +175,8 @@ def _run_order(text, query, trace, policy, client, persist=True, relaxation=None
     Re-run with a changed query when a person accepts a relaxation (relax_order), and with
     the same query when a quote changed before approval (decide_order, `stale`)."""
     today_ = today()
+    if not trace.get("past_delivery_date"):
+        nlu.block_past_delivery(trace, today_, query.get("deliver_by"))
     ptype = catalog.PRODUCT_TYPES.get(query.get("product_type"))
     generic = query.get("product_type") == "other"
     if ptype and query.get("unit") and query["unit"] != ptype["measure"]:
@@ -241,7 +243,7 @@ def _run_order(text, query, trace, policy, client, persist=True, relaxation=None
         "rejected": rejected,
         "retrieval_stats": dict(stats, live_checked=len(cands), feasible_offers=len(offers),
                                 server_time=server_now.isoformat() if server_now else None),
-        "api_evidence": client.calls,
+        "api_evidence": client.calls if client is not None else [],
         "next_steps": _next_steps(status, rejected, best, query, stats, trace, diet_labels, product_label, relaxations),
         "clock": clock_info(),
     }
@@ -302,6 +304,8 @@ def _next_steps(status, rejected, best, query=None, stats=None, trace=None, labe
     if status == "PENDING_APPROVAL":
         return ["A buyer must run: approve <order_id> [--choose N]  or  reject <order_id>"]
     query, stats, trace, labels = query or {}, stats or {}, trace or {}, labels or {}
+    if trace.get("past_delivery_date"):
+        return [nlu.PAST_DELIVERY_MESSAGE]
     what = product_label or "product"
     tips = []
     if trace.get("blocking"):
@@ -907,6 +911,8 @@ def basket_confirm(order_id, choices, acks, by, quantities=None):
         raise ValueError(f"{order_id} is not a multi-line order")
     if b["status"] == "CONFIRMED_BY_HUMAN":
         return _replay(b, "this order was already confirmed", "decision")
+    if nlu.is_past_delivery_date(b.get("deliver_by"), today()):
+        raise ValueError(nlu.PAST_DELIVERY_MESSAGE)
     prefs = _load(PREFS, DEFAULT_PREFS)
     now = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     client = AimoClient(customer=b["policy"]["customer_id"])
@@ -977,6 +983,8 @@ def change_order(order_id, text, policy, by, use_llm=True):
     cancel_order(order_id, by, reason="replaced by a changed request")
     try:
         r = run_request(text, policy, use_llm=use_llm, allow_duplicate=True)
+        if (r.get("interpretation") or {}).get("past_delivery_date"):
+            raise ValueError(nlu.PAST_DELIVERY_MESSAGE)
     except Exception:
         orders = _load(ORDERS, {})
         o = orders[order_id]
@@ -1015,6 +1023,8 @@ def decide_order(order_id, approve, choose, by):
         raise ValueError(f"order {order_id} is {o['status']}, nothing to decide")
     if approve and not 1 <= choose <= len(o["options"]):
         raise ValueError(f"option {choose} does not exist (1-{len(o['options'])})")
+    if approve and nlu.is_past_delivery_date((o.get("query") or {}).get("deliver_by"), today()):
+        raise ValueError(nlu.PAST_DELIVERY_MESSAGE)
     now = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     if not approve:
         o["status"] = "REJECTED_BY_HUMAN"

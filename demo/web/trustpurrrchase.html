@@ -878,7 +878,8 @@ async function live(text) {
   if (r.kind === "basket") await showBasket(r);
   else if (r.status === "PROPOSAL_FOR_REVIEW") showProposal(r);
   else if (r.status === "ESCALATED_NO_OPTION" && (r.interpretation || {}).blocking?.length) {
-    say(REQUEST_GUIDANCE);
+    const past = r.interpretation.past_delivery_date;
+    say(past ? `${esc(day(past))} has already passed. Please choose a new delivery date.` : REQUEST_GUIDANCE);
     R.done = true;
     await engineSteps(r);
   } else await showOrder(r);

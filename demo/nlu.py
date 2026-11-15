@@ -123,10 +123,11 @@ _DAY_MONTH_RE = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\.?\s+(?:of\s+)?({_MO
 _MONTH_DAY_RE = re.compile(rf"\b({_MON})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?:,?\s+(\d{{4}}))?")
 _RELATIVE = [(re.compile(r"\b(day after tomorrow|ylihuomenna|i övermorgon|övermorgon)\b"), 2),
              (re.compile(r"\b(tomorrow|huomenna|huomiseksi|i morgon|imorgon)\b"), 1),
-             (re.compile(r"\b(today|tänään|idag|i dag)\b"), 0)]
+             (re.compile(r"\b(today|tänään|idag|i dag)\b"), 0),
+             (re.compile(r"\b(yesterday|eilen|igår|i går)\b"), -1)]
 _IN_DAYS_RE = re.compile(r"\b(?:in|within)\s+(\d{1,2})\s+days?\b|\b(\d{1,2})\s+päivän\s+(?:päästä|sisällä|kuluessa)\b"
                          r"|\b(?:om|inom)\s+(\d{1,2})\s+dagar\b")
-_WEEKEND_RE = re.compile(r"\b(?:for|by)\s+(?:(this|the|next)\s+)?weekend\b")
+_WEEKEND_RE = re.compile(r"\b(?:for|by)\s+(?:(this|the|next|last)\s+)?weekend\b")
 _VAGUE_RE = re.compile(r"\b(early next week|next week|this week|end of (?:the )?(?:week|month)|asap|as soon as possible"
                        r"|ensi viikolla|ensi viikoksi|tällä viikolla|kuun lopussa|mahdollisimman pian"
                        r"|nästa vecka|denna vecka|snarast|så snart som möjligt)\b")
@@ -374,9 +375,12 @@ def _parse_date(text, today):
         rel_spans.setdefault(d, []).append(m.span())
     weekday, wd_spans = [], {}
     for name, wd in WEEKDAYS.items():
-        m = re.search(r"\b" + name + r"[a-zåäö]*", t)
+        m = re.search(r"\b(?:(last)\s+)?" + name + r"[a-zåäö]*", t)
         if m:
-            d = _next_weekday(today, wd)
+            if m.group(1):
+                d = today - dt.timedelta(days=(today.weekday() - wd) % 7 or 7)
+            else:
+                d = _next_weekday(today, wd)
             weekday.append(d)
             wd_spans[d] = [m.span()]
             break
@@ -393,7 +397,8 @@ def _parse_date(text, today):
     weekend = _WEEKEND_RE.search(t)
     if weekend:
         days_to_saturday = 5 - today.weekday()
-        days = days_to_saturday + 7 if weekend.group(1) == "next" else days_to_saturday % 7
+        week_shift = {"next": 7, "last": -7}.get(weekend.group(1))
+        days = days_to_saturday + week_shift if week_shift is not None else days_to_saturday % 7
         saturday = today + dt.timedelta(days=days)
         return saturday.isoformat(), issues, [weekend.span()]
     vague = _VAGUE_RE.search(t)
@@ -1182,6 +1187,28 @@ def _validate(q):
     return errs
 
 
+PAST_DELIVERY_MESSAGE = "That delivery date has already passed. Please choose a new delivery date."
+
+
+def block_past_delivery(trace, today, *dates):
+    for date in dates:
+        if date and is_past_delivery_date(date, today):
+            trace["past_delivery_date"] = date
+            trace["blocking"] = [PAST_DELIVERY_MESSAGE]
+            trace["issues"].append(PAST_DELIVERY_MESSAGE)
+            return True
+    return False
+
+
+def is_past_delivery_date(date, today):
+    if not date:
+        return False
+    try:
+        return dt.date.fromisoformat(date) < today
+    except ValueError:
+        return False  # invalid dates are handled by _validate
+
+
 def _apply_llm(env, rules, text, trace):
     """Merge Claude's reading into the trace. Returns the query for the order path."""
     intent = env.get("intent") or "order"
@@ -1300,6 +1327,9 @@ def interpret(text, today, use_llm=True):
                                   "outcome": "rules_only" if rules.get(f) not in (None, []) else "not_stated"}
                                  for f in CRITICAL_FIELDS]
     trace["spans"] = {"rules": rule_spans(text, today, rules), "claude": quote_spans(text, trace)}
+    if block_past_delivery(trace, today, rules.get("deliver_by"), q.get("deliver_by")):
+        trace["intent"] = "order"
+        return q, trace
     if trace["intent"] == "source" or (trace["intent"] == "order" and (
             parse_diet_groups(text) or (trace.get("llm_output") or {}).get("diet_groups"))):
         _merge_groups(text, trace, rules)

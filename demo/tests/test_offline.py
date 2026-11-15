@@ -344,11 +344,28 @@ class Dates(unittest.TestCase):
         monday = sunday + dt.timedelta(days=1)
         self.assertEqual(nlu.parse_date("for next weekend", monday), ("2026-11-28", []))
 
+    def test_past_dates_stop_orders_and_menu_requests_before_quoting(self):
+        with mock.patch.object(agent, "today", return_value=TODAY), \
+                mock.patch.object(agent, "AimoClient") as client:
+            order = agent.run_request("I need 10 litres of milk by yesterday", _policy(),
+                                      use_llm=False, persist=False)
+            with mock.patch.object(nlu, "parse_llm", return_value=_envelope("recommend")):
+                menu = agent.run_request("Can you suggest a menu for 2 people by 10 November 2026?",
+                                         _policy(), persist=False)
+        client.assert_not_called()
+        for result, date in ((order, "2026-11-13"), (menu, "2026-11-10")):
+            self.assertEqual(result["status"], "ESCALATED_NO_OPTION")
+            self.assertEqual(result["interpretation"]["past_delivery_date"], date)
+            self.assertEqual(result["next_steps"], [nlu.PAST_DELIVERY_MESSAGE])
+            self.assertEqual(result["options"], [])
+
     def test_dates(self):
         cases = {  # request -> (ISO date or None, fragment of an issue or None)
             "by Monday": ("2026-11-16", None),
+            "by last Monday": ("2026-11-09", None),
             "by tomorrow": ("2026-11-15", None),
             "for this weekend": ("2026-11-14", None),
+            "for last weekend": ("2026-11-07", None),
             "the day after tomorrow": ("2026-11-16", None),
             "in 3 days": ("2026-11-17", None),
             "by 16.11.": ("2026-11-16", None),
@@ -766,6 +783,7 @@ class CommitControls(unittest.TestCase):
         self.patches = [mock.patch.object(agent, "OUT", self.tmp),
                         mock.patch.object(agent, "ORDERS", os.path.join(self.tmp, "orders.json")),
                         mock.patch.object(agent, "PREFS", os.path.join(self.tmp, "prefs.json")),
+                        mock.patch.object(agent, "today", return_value=TODAY),
                         mock.patch.dict(os.environ, {"AIMO_API_KEY": "test"})]
         for p in self.patches:
             p.start()
@@ -827,6 +845,14 @@ class CommitControls(unittest.TestCase):
             with self.assertRaises(agent.AimoApiError):
                 agent.decide_order("ORD-P", True, 1, "Head chef")
         self.assertEqual(agent._load(agent.ORDERS, {})["ORD-P"]["status"], "PENDING_APPROVAL")
+
+    def test_approval_refuses_an_expired_delivery_date(self):
+        agent._save(agent.ORDERS, {"ORD-P": _pending()})
+        with mock.patch.object(agent, "today", return_value=dt.date(2026, 11, 17)), \
+                mock.patch.object(agent, "AimoClient") as client:
+            with self.assertRaisesRegex(ValueError, "delivery date has already passed"):
+                agent.decide_order("ORD-P", True, 1, "Head chef")
+        client.assert_not_called()
 
     def test_request_hash_ignores_wording_but_not_the_goods(self):
         h = lambda t: agent.request_hash(nlu.interpret(t, TODAY, use_llm=False)[0], "C")
