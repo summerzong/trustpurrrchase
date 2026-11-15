@@ -215,6 +215,19 @@ class LlmMerge(unittest.TestCase):
         self.assertEqual(q["quantity"], 1000)
         self.assertTrue(any("read only by Claude" in i and "quantity" in i for i in tr["issues"]))
 
+    def test_counted_product_name_can_supply_missing_quote(self):
+        order = _order(18, "PCS", None, (),
+                       {"product_type": "", "quantity": "18", "unit": "chicken eggs"})
+        order.update(product_type="other", product={"name_en": "chicken eggs"})
+        text = "Please find 18 chicken eggs."
+        q, tr = self.run_with(text, _envelope(order=order))
+        self.assertEqual((q["product_type"], q["quantity"], q["unit"]), ("other", 18, "PCS"))
+        self.assertFalse(tr["blocking"])
+        order["product"]["name_en"] = "quail eggs"
+        q, tr = self.run_with(text, _envelope(order=order))
+        self.assertIsNone(q["product_type"])
+        self.assertTrue(tr["blocking"])
+
     def test_disagreement_is_not_resolved_silently(self):
         _, tr = self.run_with("1000 l lactose-free milk by Monday", _envelope(order=_order(100)))
         self.assertTrue(any("interpretation mismatch on 'quantity'" in i for i in tr["issues"]))
@@ -406,17 +419,24 @@ class GenericProducts(unittest.TestCase):
         self.assertIsNone(catalog.amount_per_sales_unit(p["464205"], "KG")[0])       # '4x5 kg': left to the price API
         self.assertEqual(catalog.amount_per_sales_unit(p["464306"], "L")[0], 1.0)
 
-    def test_claude_verdicts_then_deterministic_checks(self):
+    def test_count_whole_eggs_not_cartons(self):
+        carton, case = self.by_id["467676"], self.by_id["468445"]
+        self.assertEqual(catalog.amount_per_sales_unit(carton, "PCS")[0], 10)
+        self.assertEqual(catalog.amount_per_sales_unit(case, "PCS")[0], 120)
+        unknown = dict(carton, name_en="Barn eggs", name_fi="Kananmunat")
+        self.assertIsNone(catalog.amount_per_sales_unit(unknown, "PCS")[0])
+
+    def test_generic_quote_excludes_variants(self):
         prods = [self.by_id[i] for i in ("464411", "472127", "469665")]
         verdicts = {"464411": {"verdict": "is_the_product", "reason": "butter"},
                     "472127": {"verdict": "variant", "reason": "clarified butter"},
                     "469665": {"verdict": "different_product", "reason": "ice cream"}}
         q = {"product_type": "other", "diet": [], "avoid_brands": [], "preferences": {}}
         cands, rejected, stats = catalog.check_candidates(prods, verdicts, q, "KG")
-        self.assertEqual([c["id"] for c in cands], ["464411", "472127"])
-        self.assertIsNotNone(cands[1]["variant_note"])
-        self.assertEqual([(x["id"], x["code"], x["stage"]) for x in rejected], [("469665", "NOT_THE_PRODUCT", "llm")])
-        self.assertEqual(stats["identified"], 2)
+        self.assertEqual([c["id"] for c in cands], ["464411"])
+        self.assertEqual([(x["id"], x["code"], x["stage"]) for x in rejected],
+                         [("472127", "NOT_THE_PRODUCT", "llm"), ("469665", "NOT_THE_PRODUCT", "llm")])
+        self.assertEqual(stats["identified"], 1)
 
     def test_classify_schema_only_allows_real_candidates(self):
         s = nlu.build_classify_schema([{"id": "464411"}, {"id": "469665"}])
@@ -434,6 +454,14 @@ class GenericProducts(unittest.TestCase):
 
 
 class GenericGuardrails(unittest.TestCase):
+    def test_bulk_discount_does_not_reward_overbuying(self):
+        small = {"amount": 20, "need": 18, "packs": 2, "total": 4.02, "eur_per_unit": 4.02 / 20}
+        bulk = {"amount": 90, "need": 18, "packs": 1, "total": 11.87, "eur_per_unit": 11.87 / 90}
+        for p in (small, bulk):
+            p.update(availability=0.99, preference=1, evidence=1, coverage=1, co2_kg=None)
+        weights = engine.effective_weights(agent.DEFAULT_PREFS, {})
+        self.assertIs(engine.rank([bulk, small], weights)[0], small)
+
     def test_unreviewed_product_type_and_missing_ceiling_need_a_human(self):
         q = {"product_type": "other", "preferences": {}, "diet": []}
         decision, checks = engine.guardrails(_plan("KG", 6.6), q, _policy(), [], (), "butter")

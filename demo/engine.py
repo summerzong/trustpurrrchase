@@ -14,7 +14,7 @@ STOCK_AMPLE = aimo_contract.AMPLE_STOCK            # what the API's quantity val
 TERMINAL_UNKNOWN = aimo_contract.TERMINAL_UNKNOWN
 UNKNOWN_RELIABILITY = 0.90   # prior when no delivery-reliability history exists
 UNCONFIRMED_QTY_FACTOR = 0.8
-MEASURE_WORD = {"L": "litres", "KG": "kilos", "PCS": "packs"}
+MEASURE_WORD = {"L": "litres", "KG": "kilos", "PCS": "pieces"}
 OBJECTIVES = ["cost", "availability", "preference", "evidence", "handling", "carbon"]
 
 
@@ -248,12 +248,15 @@ def utilities(p, plans):
     def ratio_min(key):
         vals = [q[key] for q in plans if q[key]]
         return (min(vals) / p[key]) if p[key] and vals else 1.0
+    # Extra pieces in a larger pack should not make buying more look cheaper.
+    cost = lambda q: q["total"] / min(q["amount"], q["need"])
+    handling = lambda q: q["packs"] / min(q["amount"], q["need"])
     return {
-        "cost": ratio_min("eur_per_unit"),
+        "cost": min(map(cost, plans)) / cost(p) if p["total"] else 1.0,
         "availability": p["availability"],
         "preference": p["preference"],
         "evidence": p["evidence"],
-        "handling": min(q["packs"] / q["amount"] for q in plans) / (p["packs"] / p["amount"]),
+        "handling": min(map(handling, plans)) / handling(p),
         "carbon": ratio_min("co2_kg") if p["co2_kg"] else 1.0,
     }
 
@@ -276,9 +279,9 @@ def rank(plans, weights):
         if len(plans) > 1 and sum(abs(v - best) < 1e-9 for v in vals) == 1:  # only a unique best earns a tag
             fn(plans, key=key)["tags"].append(name)
     if plans:
-        tag("cheapest", lambda p: p["eur_per_unit"], min)
+        tag("lowest unit price", lambda p: p["eur_per_unit"], min)
         tag("most reliable", lambda p: p["availability"], max)
-        tag("fewest packs", lambda p: p["packs"] / p["amount"], min)
+        tag("fewest packs", lambda p: p["packs"] / min(p["amount"], p["need"]), min)
         if any(p["preference"] < 1 for p in plans):
             tag("best preference match", lambda p: p["preference"], max)
     return plans

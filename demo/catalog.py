@@ -249,6 +249,8 @@ def litres_per_sales_unit(p):
 
 
 WEIGHT_RE = re.compile(r"(?:(\d+)\s*x\s*)?(\d+(?:[.,]\d+)?)\s*(kg|g)\b", re.I)
+WHOLE_EGG_CATEGORY = "10590"
+EGG_PACK_COUNT_RE = re.compile(r"\b(?:[sml](\d+)|(\d+)\s*(?:kpl|pcs|st))\b", re.I)
 
 
 def amount_per_sales_unit(p, measure):
@@ -258,7 +260,8 @@ def amount_per_sales_unit(p, measure):
     weight in the name, but only when the name clearly describes one base unit (no 'N x'
     and sold per base unit, or a single pack weight). Ambiguous cases return None, and the
     live check derives the amount from the price API's comparison price instead.
-    PCS counts base units (consumer packs) per sales unit."""
+    PCS counts base units per sales unit, except for whole eggs, where the name says
+    how many individual eggs each base unit contains (e.g. M10 is a carton of 10)."""
     if measure == "L":
         return litres_per_sales_unit(p)
     units = p["units"]
@@ -275,6 +278,11 @@ def amount_per_sales_unit(p, measure):
             return kg * s / base, "pack weight from name x pack size"
         return None, None
     if measure == "PCS":
+        if p.get("category") == WHOLE_EGG_CATEGORY:
+            m = EGG_PACK_COUNT_RE.search(p["name_fi"]) or EGG_PACK_COUNT_RE.search(p["name_en"])
+            if not m:  # never count an unknown number of eggs as one egg
+                return None, None
+            return int(m.group(1) or m.group(2)) * s / base, "egg count from name x pack size"
         return s / base, "consumer packs per sales unit"
     return None, None
 
@@ -638,6 +646,9 @@ def _check(p, query, measure, reject, density=1.0):
     if measure == "L" and not per:  # KG / PCS may still be derived from the price API's comparison price
         reject(p, "NO_UNIT_CONVERSION", "cannot convert sales unit to litres")
         return None
+    if measure == "PCS" and p.get("category") == WHOLE_EGG_CATEGORY and not per:
+        reject(p, "NO_UNIT_CONVERSION", "catalogue does not state how many eggs are in the pack")
+        return None
     packs = (p["units"].get(p["salesUnit"]) or 1.0) / (p["units"].get(p["baseUnit"]) or 1.0)
     return dict(
         p,
@@ -691,7 +702,8 @@ def retrieve(query, index):
     return cands, rejected, stats
 
 
-VERDICT_TEXT = {"contains_it": "contains or is made with it", "different_product": "a different product"}
+VERDICT_TEXT = {"variant": "a variant, not the requested product",
+                "contains_it": "contains or is made with it", "different_product": "a different product"}
 
 
 def check_candidates(products, verdicts, query, measure, stats=None):
@@ -706,14 +718,12 @@ def check_candidates(products, verdicts, query, measure, stats=None):
     kept = 0
     for p in products:
         v = verdicts.get(p["id"]) or {"verdict": "different_product", "reason": "no verdict"}
-        if v["verdict"] not in ("is_the_product", "variant"):
+        if v["verdict"] != "is_the_product":
             reject_llm(p, "NOT_THE_PRODUCT", f"Claude: {VERDICT_TEXT.get(v['verdict'], v['verdict'])} ({v['reason']})")
             continue
         kept += 1
         c = _check(p, query, measure, reject)
         if c:
-            if v["verdict"] == "variant":
-                c["variant_note"] = f"variant of the requested product: {v['reason']}"
             cands.append(c)
     stats.update(identified=kept, candidates=len(cands))
     return cands, rejected, stats

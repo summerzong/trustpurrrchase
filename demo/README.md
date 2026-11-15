@@ -181,7 +181,7 @@ Approval re-checks the chosen option against a fresh live quote before it commit
 
 ## Ranking (multi-objective)
 
-Utilities are scaled to the 0–1 range, with best = 1: **cost** (€/L), **availability** (delivery reliability × whether the quantity is confirmed), **preference match** (brand, fat level, organic), **evidence** strength, **handling** (consumer packs per litre) and **carbon** (category-level CO2e, which currently does not separate milk options). The score is the weighted sum × coverage. Objectives named in the request ("price", "availability") get a 1.5× weight boost. The agent marks Pareto-optimal options, and always shows tagged and Pareto options next to the top-ranked ones, so the human sees the real trade-offs.
+Utilities are scaled to the 0–1 range, with best = 1: **cost** (total spend per requested unit covered), **availability** (delivery reliability × whether the quantity is confirmed), **preference match** (brand, fat level, organic), **evidence** strength, **handling** (consumer packs per requested unit covered) and **carbon** (category-level CO2e, which currently does not separate milk options). The score is the weighted sum × coverage. Objectives named in the request ("price", "availability") get a 1.5× weight boost. The agent marks Pareto-optimal options, and always shows tagged and Pareto options next to the top-ranked ones, so the human sees the real trade-offs.
 
 ## Guardrails (`policy.json`)
 
