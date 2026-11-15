@@ -1,4 +1,6 @@
-# Trusted Trade Agents: Junction 2026 (Valio Aimo challenge)
+# TrustPurrrchase: Junction 2026 (Valio Aimo challenge)
+
+[Open the interactive demo](https://summerzong--demo.us-east.modal.run/) · Team Crux Cats
 
 This is the onboarding guide for coding agents and new teammates. Read it before changing anything. Design rationale, the demo script, known gaps and the roadmap are in [`demo/README.md`](demo/README.md) (see "Next steps").
 
@@ -71,6 +73,8 @@ Common failures:
 | `ValueError: rules/diet_terms.json has codes without a rule` | A code in `diet_terms.json` is misspelled, or is neither in the data nor in `diet_overrides.json` |
 
 ## Online demo (deploy)
+
+The submission demo runs on Modal with the entry point in [deploy/modal/app.py](deploy/modal/app.py). Create a Modal secret named `trustpurrrchase-api` containing `AIMO_API_KEY` and `GEMINI_API_KEY`, then run `modal deploy deploy/modal/app.py` from the repository root. The first start downloads the challenge catalogue into a Modal Volume.
 
 The repository runs as one Docker image on any Docker host (Hugging Face Spaces, Render, Railway, Fly.io).
 Set the secret `AIMO_API_KEY` (required) and `GEMINI_API_KEY` (optional). The challenge data is not in the
