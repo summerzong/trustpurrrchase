@@ -126,7 +126,7 @@ _RELATIVE = [(re.compile(r"\b(day after tomorrow|ylihuomenna|i övermorgon|över
              (re.compile(r"\b(today|tänään|idag|i dag)\b"), 0)]
 _IN_DAYS_RE = re.compile(r"\b(?:in|within)\s+(\d{1,2})\s+days?\b|\b(\d{1,2})\s+päivän\s+(?:päästä|sisällä|kuluessa)\b"
                          r"|\b(?:om|inom)\s+(\d{1,2})\s+dagar\b")
-_WEEKEND_RE = re.compile(r"\b(?:for|by)\s+(?:(?:this|the)\s+)?weekend\b")
+_WEEKEND_RE = re.compile(r"\b(?:for|by)\s+(?:(this|the|next)\s+)?weekend\b")
 _VAGUE_RE = re.compile(r"\b(early next week|next week|this week|end of (?:the )?(?:week|month)|asap|as soon as possible"
                        r"|ensi viikolla|ensi viikoksi|tällä viikolla|kuun lopussa|mahdollisimman pian"
                        r"|nästa vecka|denna vecka|snarast|så snart som möjligt)\b")
@@ -392,7 +392,9 @@ def _parse_date(text, today):
         return chosen[0].isoformat(), issues, chosen_spans
     weekend = _WEEKEND_RE.search(t)
     if weekend:
-        saturday = today + dt.timedelta(days=(5 - today.weekday()) % 7)
+        days_to_saturday = 5 - today.weekday()
+        days = days_to_saturday + 7 if weekend.group(1) == "next" else days_to_saturday % 7
+        saturday = today + dt.timedelta(days=days)
         return saturday.isoformat(), issues, [weekend.span()]
     vague = _VAGUE_RE.search(t)
     if vague:
@@ -870,6 +872,7 @@ def _interpret_system(today):
         "list) when the message does not state a field. A missing quantity is null, not a guess.\n"
         "- Resolve relative dates such as 'by Monday' to the next such date as an ISO date.\n"
         "- 'For this weekend' or 'for the weekend' means by the upcoming Saturday, including today if it is Saturday.\n"
+        "- 'For next weekend' means by Saturday of the next calendar week.\n"
         "- If a specific food and headcount are given but the buyer leaves the amount open, return a typical "
         "serving estimate in `serving_estimate` in KG or L per person. Leave order.quantity and order.unit null. "
         "Example: 'some apples for this weekend for 2 people' is an order for apples with portions 2 "

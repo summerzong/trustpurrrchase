@@ -340,6 +340,9 @@ class Dates(unittest.TestCase):
     def test_weekend_on_sunday_means_upcoming_saturday(self):
         sunday = dt.date(2026, 11, 15)
         self.assertEqual(nlu.parse_date("for this weekend", sunday), ("2026-11-21", []))
+        self.assertEqual(nlu.parse_date("for next weekend", sunday), ("2026-11-21", []))
+        monday = sunday + dt.timedelta(days=1)
+        self.assertEqual(nlu.parse_date("for next weekend", monday), ("2026-11-28", []))
 
     def test_dates(self):
         cases = {  # request -> (ISO date or None, fragment of an issue or None)
